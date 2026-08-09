@@ -12,12 +12,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Theos
+      - name: Setup Theos + ldid
         run: |
           export THEOS=$HOME/theos
           echo "THEOS=$THEOS" >> $GITHUB_ENV
           echo "PATH=$THEOS/bin:$PATH" >> $GITHUB_ENV
           git clone --recursive --depth 1 https://github.com/theos/theos.git $THEOS
+          brew install ldid
 
       - name: Download iOS 16.5 SDK
         run: |
@@ -25,11 +26,9 @@ jobs:
           curl -LO https://github.com/theos/sdks/archive/master.zip
           unzip -q master.zip
           cp -rn sdks-master/*.sdk $THEOS/sdks/ 2>/dev/null || true
-          ls $THEOS/sdks/
 
       - name: Build .deb
         run: |
-          export THEOS_BUILD_SDK=iphoneos16.5
           make clean package
 
       - name: Upload .deb
