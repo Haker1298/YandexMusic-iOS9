@@ -41,13 +41,20 @@ after-stage::
 
 # Repack .deb with gzip for iOS 9 dpkg compatibility (lzma not supported)
 after-package::
+	@echo "[INFO] Repacking .deb with gzip for iOS 9..."
 	@cd $(THEOS_PACKAGE_DIR) && \
-		ar x $(THEOS_PACKAGE_NAME).deb && \
-		lzma -dk data.tar.lzma && \
-		rm -f data.tar.lzma && \
-		gzip -f data.tar && \
-		ar r $(THEOS_PACKAGE_NAME).deb debian-binary control.tar.gz data.tar.gz && \
-		rm -f data.tar.gz && \
-		echo "[OK] Repacked .deb with gzip for iOS 9"
+		DEB=$(THEOS_PACKAGE_NAME).deb && \
+		ar x "$$DEB" && \
+		if [ -f data.tar.lzma ]; then \
+			lzma -dk data.tar.lzma && \
+			rm -f data.tar.lzma && \
+			tar czf data.tar.gz data.tar && \
+			rm -f data.tar && \
+			ar r "$$DEB" debian-binary control.tar.gz data.tar.gz && \
+			rm -f data.tar.gz && \
+			echo "[OK] Repacked with gzip"; \
+		else \
+			echo "[SKIP] No data.tar.lzma found"; \
+		fi
 
 include $(THEOS_MAKE_PATH)/application.mk
