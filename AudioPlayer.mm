@@ -150,6 +150,7 @@ static NSString *const kApiBase = @"https://api.music.yandex.net";
         NSString *streamUrl = nil;
 
         // Try parsing as JSON array (most common: [{codec, bitrateInKbps, href, ...}])
+        NSError *jsonErr = nil;
         id jsonObj = [NSJSONSerialization JSONObjectWithData:data options:0 error:&jsonErr];
 
         if ([jsonObj isKindOfClass:[NSArray class]]) {
@@ -252,12 +253,8 @@ static NSString *const kApiBase = @"https://api.music.yandex.net";
 
     [[MiniPlayerView sharedPlayer] updatePlayState:YES];
 
-    // Update duration when item is ready
-    [[NSNotificationCenter defaultCenter] removeObserver:self name:AVPlayerItemDurationChangedNotification object:nil];
-    [[NSNotificationCenter defaultCenter] addObserver:self
-                                             selector:@selector(durationChanged:)
-                                                 name:AVPlayerItemDurationChangedNotification
-                                               object:item];
+    // Observe duration via KVO (works on all iOS versions)
+    [item addObserver:self forKeyPath:@"duration" options:0 context:nil];
 
     // Time observer for progress updates (every 0.5s)
     __weak typeof(self) wself = self;
@@ -280,12 +277,14 @@ static NSString *const kApiBase = @"https://api.music.yandex.net";
     [[MiniPlayerView sharedPlayer] setTrackInfo:self.currentTitle artist:self.currentArtist];
 }
 
-- (void)durationChanged:(NSNotification *)notif {
-    AVPlayerItem *item = (AVPlayerItem *)notif.object;
-    double dur = CMTimeGetSeconds(item.duration);
-    if (dur > 0 && isfinite(dur)) {
-        self.currentDuration = dur;
-        [self notifyPlayerUpdate];
+- (void)observeValueForKeyPath:(NSString *)keyPath ofObject:(id)object change:(NSDictionary *)change context:(void *)context {
+    if ([keyPath isEqualToString:@"duration"]) {
+        AVPlayerItem *item = (AVPlayerItem *)object;
+        double dur = CMTimeGetSeconds(item.duration);
+        if (dur > 0 && isfinite(dur)) {
+            self.currentDuration = dur;
+            [self notifyPlayerUpdate];
+        }
     }
 }
 
