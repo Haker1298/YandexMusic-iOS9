@@ -3,7 +3,6 @@
 #import "KeychainHelper.h"
 
 static NSString *const kClientId = @"23cabbbdc6cd44269f782aa40abda634";
-static NSString *const kRedirectURI = @"yandexmusic://auth/callback";
 
 @implementation OAuthViewController {
     UIView *loginView;
@@ -121,11 +120,10 @@ static NSString *const kRedirectURI = @"yandexmusic://auth/callback";
     
     [self.view addSubview:webViewContainer];
     
-    // Load OAuth page
+    // Load OAuth page — redirect to verification_code page so token appears in URL
     NSString *authURL = [NSString stringWithFormat:
-        @"https://oauth.yandex.ru/authorize?response_type=token&client_id=%@&redirect_uri=%@&display=mobile",
-        kClientId,
-        [kRedirectURI stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLQueryAllowedCharacterSet]]
+        @"https://oauth.yandex.ru/authorize?response_type=token&client_id=%@&redirect_uri=https://oauth.yandex.ru/verification_code&display=mobile",
+        kClientId
     ];
     NSURLRequest *req = [NSURLRequest requestWithURL:[NSURL URLWithString:authURL]];
     [authWebView loadRequest:req];
@@ -133,9 +131,10 @@ static NSString *const kRedirectURI = @"yandexmusic://auth/callback";
 
 - (void)webView:(WKWebView *)webView decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
     NSURL *url = navigationAction.request.URL;
+    NSString *absString = [url absoluteString];
     
-    // Intercept our redirect URI
-    if ([[url scheme] isEqualToString:@"yandexmusic"]) {
+    // Intercept verification_code page with token in URL fragment
+    if ([absString containsString:@"oauth.yandex.ru/verification_code#"]) {
         NSString *fragment = [url fragment];
         if (fragment) {
             NSString *token = [self extractToken:fragment];
@@ -145,13 +144,10 @@ static NSString *const kRedirectURI = @"yandexmusic://auth/callback";
                 return;
             }
         }
-        decisionHandler(WKNavigationActionPolicyCancel);
-        return;
     }
     
-    // Also check if the URL contains access_token in fragment (Yandex may redirect differently in WebView)
-    NSString *absString = [url absoluteString];
-    if ([absString containsString:@"access_token="] && [absString containsString:@"oauth.yandex"]) {
+    // Also catch any URL with access_token in fragment
+    if ([absString containsString:@"access_token="]) {
         NSString *fragment = [url fragment];
         if (fragment) {
             NSString *token = [self extractToken:fragment];
