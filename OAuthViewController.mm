@@ -2,7 +2,7 @@
 #import "AppDelegate.h"
 #import "KeychainHelper.h"
 
-static NSString *const kClientId = @"23cabbbdc6cd44269f782aa40abda634";
+static NSString *const kClientId = @"b399db89f01e4bd4965cef1f7973ee05";
 
 @implementation OAuthViewController {
     UIView *loginView;
@@ -314,7 +314,7 @@ static NSString *const kClientId = @"23cabbbdc6cd44269f782aa40abda634";
 }
 
 - (void)openTokenPage {
-    NSString *url = @"https://oauth.yandex.ru/authorize?response_type=token&client_id=23cabbbdc6cd44269f782aa40abda634";
+    NSString *url = @"https://oauth.yandex.ru/authorize?response_type=token&client_id=b399db89f01e4bd4965cef1f7973ee05";
     [[UIApplication sharedApplication] openURL:[NSURL URLWithString:url]];
 }
 
