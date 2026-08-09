@@ -133,7 +133,7 @@ static NSString *const kClientId = @"b399db89f01e4bd4965cef1f7973ee05";
     [submitBtn addTarget:self action:@selector(submitManualToken) forControlEvents:UIControlEventTouchUpInside];
     [tokenInputView addSubview:submitBtn];
     
-    // Get token button
+    // Get token button - opens WebView
     UIButton *linkBtn = [UIButton buttonWithType:UIButtonTypeSystem];
     linkBtn.frame = CGRectMake(30, 245, cx - 60, 36);
     linkBtn.backgroundColor = [UIColor colorWithWhite:0.15 alpha:1.0];
@@ -143,12 +143,12 @@ static NSString *const kClientId = @"b399db89f01e4bd4965cef1f7973ee05";
     [linkBtn setTitle:@"\u041F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0442\u043E\u043A\u0435\u043D" forState:UIControlStateNormal];
     [linkBtn setTitleColor:[UIColor colorWithRed:1.0 green:0.8 blue:0.0 alpha:1.0] forState:UIControlStateNormal];
     linkBtn.titleLabel.font = [UIFont systemFontOfSize:13];
-    [linkBtn addTarget:self action:@selector(openTokenPage) forControlEvents:UIControlEventTouchUpInside];
+    [linkBtn addTarget:self action:@selector(showWebViewLogin) forControlEvents:UIControlEventTouchUpInside];
     [tokenInputView addSubview:linkBtn];
     
     // Help text
     UILabel *helpLabel = [[UILabel alloc] initWithFrame:CGRectMake(30, 300, cx - 60, 80)];
-    helpLabel.text = @"\u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u0441\u0441\u044B\u043B\u043A\u0443 \u043D\u0438\u0436\u0435 \u043D\u0430 \u0434\u0440\u0443\u0433\u043E\u043C \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u0435, \u0432\u043E\u0439\u0434\u0438\u0442\u0435 \u0432 \u042F\u043D\u0434\u0435\u043A\u0441 \u0438 \u0441\u043A\u043E\u043F\u0438\u0440\u0443\u0439\u0442\u0435 access_token \u0438\u0437 \u0430\u0434\u0440\u0435\u0441\u0430";
+    helpLabel.text = @"\u041D\u0430\u0436\u043C\u0438\u0442\u0435 \u043A\u043D\u043E\u043F\u043A\u0443 \u0432\u044B\u0448\u0435, \u0432\u043E\u0439\u0434\u0438\u0442\u0435 \u0432 \u042F\u043D\u0434\u0435\u043A\u0441, \u0442\u043E\u043A\u0435\u043D \u0431\u0443\u0434\u0435\u0442 \u0441\u043A\u043E\u043F\u0438\u0440\u043E\u0432\u0430\u043D \u0430\u0432\u0442\u043E\u043C\u0430\u0442\u0438\u0447\u0435\u0441\u043A\u0438";
     helpLabel.numberOfLines = 0;
     helpLabel.textAlignment = NSTextAlignmentCenter;
     helpLabel.textColor = [UIColor colorWithWhite:0.4 alpha:1.0];
@@ -174,23 +174,19 @@ static NSString *const kClientId = @"b399db89f01e4bd4965cef1f7973ee05";
     }
 }
 
-- (void)openTokenPage {
-    NSString *url = @"https://oauth.yandex.ru/authorize?response_type=token&client_id=b399db89f01e4bd4965cef1f7973ee05";
-    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:url]];
-}
-
 #pragma mark - Guest Mode
 
 - (void)enterGuestMode {
     AppDelegate *del = (AppDelegate *)[[UIApplication sharedApplication] delegate];
     del.accessToken = nil;
+    del.isGuestMode = YES;
     [del showMainApp];
 }
 
 #pragma mark - WebView Login
 
 - (void)showWebViewLogin {
-    [loginView removeFromSuperview];
+    [tokenInputView removeFromSuperview];
     
     webViewContainer = [[UIView alloc] initWithFrame:self.view.bounds];
     webViewContainer.backgroundColor = [UIColor colorWithRed:0.06 green:0.06 blue:0.08 alpha:1.0];
@@ -243,12 +239,51 @@ static NSString *const kClientId = @"b399db89f01e4bd4965cef1f7973ee05";
         }
     }
     
+    // If redirected to verification_code page, try to extract token from URL
+    if ([absString containsString:@"oauth.yandex.ru/verification_code"]) {
+        NSString *fragment = [url fragment];
+        if (fragment && [fragment containsString:@"access_token="]) {
+            NSString *token = [self extractToken:fragment];
+            if (token) {
+                [self tokenReceived:token];
+                decisionHandler(WKNavigationActionPolicyCancel);
+                return;
+            }
+        }
+        // If we got to verification_code without token in fragment, show message
+        if (!fragment || ![fragment containsString:@"access_token="]) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"\u0422\u043E\u043A\u0435\u043D"
+                                                               message:@"\u0421\u043A\u043E\u043F\u0438\u0440\u0443\u0439\u0442\u0435 access_token \u0438\u0437 \u0430\u0434\u0440\u0435\u0441\u0430 \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u044B \u0438 \u0432\u0441\u0442\u0430\u0432\u044C\u0442\u0435 \u043D\u0430 \u043F\u0440\u0435\u0434\u044B\u0434\u0443\u0449\u0435\u043C \u044D\u043A\u0440\u0430\u043D\u0435"
+                                                              delegate:nil
+                                                     cancelButtonTitle:@"OK"
+                                                     otherButtonTitles:nil];
+                [alert show];
+                [self backToLogin];
+            });
+        }
+        decisionHandler(WKNavigationActionPolicyCancel);
+        return;
+    }
+    
     decisionHandler(WKNavigationActionPolicyAllow);
 }
 
-- (void)webViewDidFinishLoad:(WKWebView *)webView {
+- (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
     UIActivityIndicatorView *spinner = (UIActivityIndicatorView *)[webViewContainer viewWithTag:42];
     if (spinner) [spinner stopAnimating];
+    
+    // Try to extract token from current URL
+    NSString *url = [webView.URL absoluteString];
+    if ([url containsString:@"access_token="]) {
+        NSString *fragment = [webView.URL fragment];
+        if (fragment) {
+            NSString *token = [self extractToken:fragment];
+            if (token) {
+                [self tokenReceived:token];
+            }
+        }
+    }
 }
 
 - (NSString *)extractToken:(NSString *)fragment {
@@ -268,7 +303,7 @@ static NSString *const kClientId = @"b399db89f01e4bd4965cef1f7973ee05";
     [webViewContainer removeFromSuperview];
     webViewContainer = nil;
     authWebView = nil;
-    [self.view addSubview:loginView];
+    [self showTokenInput];
 }
 
 - (void)backToLoginFromToken {
@@ -280,6 +315,7 @@ static NSString *const kClientId = @"b399db89f01e4bd4965cef1f7973ee05";
 - (void)tokenReceived:(NSString *)token {
     AppDelegate *del = (AppDelegate *)[[UIApplication sharedApplication] delegate];
     del.accessToken = token;
+    del.isGuestMode = NO;
     [KeychainHelper saveToken:token];
     [del showMainApp];
 }

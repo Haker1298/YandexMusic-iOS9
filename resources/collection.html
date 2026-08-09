@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="stylesheet" href="app.css">
+<title>Коллекция</title>
+</head>
+<body>
+<div id="content">
+    <div class="loading"><div class="spinner"></div><br>Загрузка...</div>
+</div>
+
+<script src="app.js"></script>
+<script>
+var currentTab = 'likes';
+
+window.onPageReady = function(token) {
+    if (window.__GUEST__) {
+        showGuestCollection();
+        return;
+    }
+    renderTabs();
+    loadLikes();
+};
+
+function showGuestCollection() {
+    var el = document.getElementById('content');
+    el.innerHTML = '<div style="text-align:center;padding-top:80px;">' +
+        '<div style="font-size:40px;margin-bottom:16px;">🔒</div>' +
+        '<div style="color:#fff;font-size:18px;font-weight:bold;margin-bottom:8px;">Коллекция</div>' +
+        '<div style="color:#888;font-size:14px;padding:0 30px;line-height:1.5;">Войдите в аккаунт чтобы видеть сохранённую музыку, плейлисты и скачивания</div>' +
+        '</div>';
+}
+
+function renderTabs() {
+    var el = document.getElementById('content');
+    var html = '<div style="padding:10px 16px;overflow-x:auto;white-space:nowrap;-webkit-overflow-scrolling:touch;">';
+    var tabs = [
+        {id: 'likes', label: 'Мне нравится'},
+        {id: 'playlists', label: 'Плейлисты'},
+        {id: 'downloads', label: 'Загрузки'},
+        {id: 'recent', label: 'Недавние'}
+    ];
+    for (var i = 0; i < tabs.length; i++) {
+        var active = tabs[i].id === currentTab;
+        var bg = active ? '#FFCC00' : '#1a1a22';
+        var color = active ? '#000' : '#ccc';
+        html += '<span style="display:inline-block;padding:6px 14px;margin-right:8px;border-radius:16px;font-size:13px;background:' + bg + ';color:' + color + ';cursor:pointer;" onclick="switchTab(\'' + tabs[i].id + '\')">' + tabs[i].label + '</span>';
+    }
+    html += '</div>';
+    html += '<div id="tab-content"></div>';
+    el.innerHTML = html;
+}
+
+function switchTab(tabId) {
+    currentTab = tabId;
+    renderTabs();
+    if (tabId === 'likes') loadLikes();
+    else if (tabId === 'playlists') loadPlaylists();
+    else if (tabId === 'downloads') loadDownloads();
+    else if (tabId === 'recent') loadRecent();
+}
+
+function loadLikes() {
+    YM.showLoading('tab-content');
+    YM.apiCall('GET', '/users/me/likes/tracks', null, function(data) {
+        if (data.error) {
+            YM.showError('tab-content', 'Не удалось загрузить');
+            return;
+        }
+        var ids = data.result || [];
+        if (ids.length === 0) {
+            document.getElementById('tab-content').innerHTML = '<div class="empty-state"><div class="empty-text">Пусто</div></div>';
+            return;
+        }
+        // Batch fetch track info
+        var idStr = '';
+        for (var i = 0; i < Math.min(ids.length, 50); i++) {
+            if (typeof ids[i] === 'object') ids[i] = ids[i].id;
+            if (idStr) idStr += ',';
+            idStr += ids[i];
+        }
+        YM.apiCall('GET', '/tracks/?ids=' + idStr, null, function(data2) {
+            if (data2.error || !data2.result) {
+                YM.showError('tab-content', 'Ошибка загрузки треков');
+                return;
+            }
+            var tracks = data2.result;
+            if (tracks.length === 0) {
+                document.getElementById('tab-content').innerHTML = '<div class="empty-state"><div class="empty-text">Пусто</div></div>';
+                return;
+            }
+            document.getElementById('tab-content').innerHTML = '<div class="track-list" id="likes-list"></div>';
+            YM.renderTrackList(tracks, 'likes-list');
+        });
+    });
+}
+
+function loadPlaylists() {
+    YM.showLoading('tab-content');
+    YM.apiCall('GET', '/users/me/playlists/list', null, function(data) {
+        if (data.error || !data.result) {
+            YM.showError('tab-content', 'Не удалось загрузить');
+            return;
+        }
+        var playlists = data.result;
+        if (playlists.length === 0) {
+            document.getElementById('tab-content').innerHTML = '<div class="empty-state"><div class="empty-text">Нет плейлистов</div></div>';
+            return;
+        }
+        var html = '';
+        for (var i = 0; i < playlists.length; i++) {
+            var p = playlists[i];
+            var cover = p.cover && p.cover.uri ? YM.getCoverUrl(p.cover.uri.replace('%%', '200x200'), '200x200') : '';
+            var desc = p.description || (p.trackCount ? p.trackCount + ' треков' : '');
+            html += '<div class="track-item" style="cursor:pointer;" onclick="openPlaylist(\'' + (p.kind || '') + '\')">';
+            html += '<div class="track-cover"><img src="' + cover + '" onerror="this.style.display=\'none\'" style="border-radius:6px;"></div>';
+            html += '<div class="track-info">';
+            html += '<div class="track-title">' + YM.escapeHtml(p.title || 'Без названия') + '</div>';
+            html += '<div class="track-artist">' + YM.escapeHtml(desc) + '</div>';
+            html += '</div></div>';
+        }
+        document.getElementById('tab-content').innerHTML = html;
+    });
+}
+
+function openPlaylist(kind) {
+    YM.showLoading('tab-content');
+    YM.apiCall('GET', '/users/me/playlists/' + kind, null, function(data) {
+        if (data.error || !data.result) {
+            YM.showError('tab-content', 'Ошибка загрузки');
+            return;
+        }
+        var tracks = data.result.tracks || [];
+        var realTracks = [];
+        for (var i = 0; i < tracks.length; i++) {
+            if (tracks[i].track) realTracks.push(tracks[i].track);
+        }
+        if (realTracks.length === 0) {
+            document.getElementById('tab-content').innerHTML = '<div class="empty-state"><div class="empty-text">Пустой плейлист</div></div>';
+            return;
+        }
+        var html = '<div style="padding:8px 16px;"><span class="btn-secondary" onclick="switchTab(\'playlists\')">← Назад</span></div>';
+        html += '<div class="track-list" id="pl-list"></div>';
+        document.getElementById('tab-content').innerHTML = html;
+        YM.renderTrackList(realTracks, 'pl-list');
+    });
+}
+
+function loadDownloads() {
+    document.getElementById('tab-content').innerHTML = '<div class="empty-state"><div class="empty-text">Нет загрузок</div></div>';
+}
+
+function loadRecent() {
+    document.getElementById('tab-content').innerHTML = '<div class="empty-state"><div class="empty-text">Нет недавних</div></div>';
+}
+
+YM.onTrackClick = function(idx) {
+    var list = document.getElementById('likes-list') || document.getElementById('pl-list');
+    if (!list || !list._tracks) return;
+    var track = list._tracks[idx];
+    if (track) {
+        YM.playTrack(track, '');
+    }
+};
+
+window.onPlayerUpdate = function(state) {};
+</script>
+</body></html>

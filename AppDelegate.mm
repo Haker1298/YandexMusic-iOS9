@@ -5,8 +5,19 @@
 #import "KeychainHelper.h"
 #import "MiniPlayerView.h"
 
-static NSString *const kClientId = @"23cabbbdc6cd44269f782aa40abda634";
+static NSString *const kClientId = @"b399db89f01e4bd4965cef1f7973ee05";
 static NSString *const kRedirectURI = @"yandexmusic://auth/callback";
+
+static UIImage *halfSizeImage(NSString *name) {
+    UIImage *img = [UIImage imageNamed:name];
+    if (!img) return nil;
+    CGSize half = CGSizeMake(img.size.width * 0.5, img.size.height * 0.5);
+    UIGraphicsBeginImageContextWithOptions(half, NO, img.scale);
+    [img drawInRect:CGRectMake(0, 0, half.width, half.height)];
+    UIImage *result = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    return result;
+}
 
 @implementation AppDelegate
 
@@ -23,6 +34,7 @@ static NSString *const kRedirectURI = @"yandexmusic://auth/callback";
     [session setActive:YES error:nil];
 
     if (self.accessToken && self.accessToken.length > 0) {
+        self.isGuestMode = NO;
         [self showMainApp];
     } else {
         [self showOAuth];
@@ -46,42 +58,42 @@ static NSString *const kRedirectURI = @"yandexmusic://auth/callback";
     // Tab 1: Моя Волна
     WebViewController *waveVC = [[WebViewController alloc] initWithPage:@"wave" title:@"Моя Волна"];
     UINavigationController *waveNav = [[UINavigationController alloc] initWithRootViewController:waveVC];
-    waveNav.tabBarItem.image = [UIImage imageNamed:@"tab_wave"];
-    waveNav.tabBarItem.selectedImage = [UIImage imageNamed:@"tab_wave_active"];
-    waveNav.tabBarItem.title = @"Волна";
+    waveNav.tabBarItem.image = halfSizeImage(@"tab_wave");
+    waveNav.tabBarItem.selectedImage = halfSizeImage(@"tab_wave_active");
+    waveNav.tabBarItem.title = @"Моя волна";
     waveNav.navigationBarHidden = YES;
 
-    // Tab 2: Поиск
-    WebViewController *searchVC = [[WebViewController alloc] initWithPage:@"search" title:@"Поиск"];
-    UINavigationController *searchNav = [[UINavigationController alloc] initWithRootViewController:searchVC];
-    searchNav.tabBarItem.image = [UIImage imageNamed:@"tab_home"];
-    searchNav.tabBarItem.selectedImage = [UIImage imageNamed:@"tab_home_active"];
-    searchNav.tabBarItem.title = @"Поиск";
-    searchNav.navigationBarHidden = YES;
+    // Tab 2: Что послушать
+    WebViewController *exploreVC = [[WebViewController alloc] initWithPage:@"explore" title:@"Что послушать"];
+    UINavigationController *exploreNav = [[UINavigationController alloc] initWithRootViewController:exploreVC];
+    exploreNav.tabBarItem.image = halfSizeImage(@"tab_home");
+    exploreNav.tabBarItem.selectedImage = halfSizeImage(@"tab_home_active");
+    exploreNav.tabBarItem.title = @"Что послушать";
+    exploreNav.navigationBarHidden = YES;
 
-    // Tab 3: Мне нравится
-    WebViewController *likesVC = [[WebViewController alloc] initWithPage:@"likes" title:@"Мне нравится"];
-    UINavigationController *likesNav = [[UINavigationController alloc] initWithRootViewController:likesVC];
-    likesNav.tabBarItem.image = [UIImage imageNamed:@"tab_likes"];
-    likesNav.tabBarItem.selectedImage = [UIImage imageNamed:@"tab_likes_active"];
-    likesNav.tabBarItem.title = @"Любимые";
-    likesNav.navigationBarHidden = YES;
+    // Tab 3: Концерты
+    WebViewController *concertsVC = [[WebViewController alloc] initWithPage:@"concerts" title:@"Концерты"];
+    UINavigationController *concertsNav = [[UINavigationController alloc] initWithRootViewController:concertsVC];
+    concertsNav.tabBarItem.image = halfSizeImage(@"tab_likes");
+    concertsNav.tabBarItem.selectedImage = halfSizeImage(@"tab_likes_active");
+    concertsNav.tabBarItem.title = @"Концерты";
+    concertsNav.navigationBarHidden = YES;
 
-    // Tab 4: Подкасты
-    WebViewController *podcastsVC = [[WebViewController alloc] initWithPage:@"podcasts" title:@"Подкасты"];
-    UINavigationController *podcastsNav = [[UINavigationController alloc] initWithRootViewController:podcastsVC];
-    podcastsNav.tabBarItem.image = [UIImage imageNamed:@"tab_podcast"];
-    podcastsNav.tabBarItem.selectedImage = [UIImage imageNamed:@"tab_podcast_active"];
-    podcastsNav.tabBarItem.title = @"Подкасты";
-    podcastsNav.navigationBarHidden = YES;
+    // Tab 4: Коллекция
+    WebViewController *collectionVC = [[WebViewController alloc] initWithPage:@"collection" title:@"Коллекция"];
+    UINavigationController *collectionNav = [[UINavigationController alloc] initWithRootViewController:collectionVC];
+    collectionNav.tabBarItem.image = halfSizeImage(@"tab_podcast");
+    collectionNav.tabBarItem.selectedImage = halfSizeImage(@"tab_podcast_active");
+    collectionNav.tabBarItem.title = @"Коллекция";
+    collectionNav.navigationBarHidden = YES;
 
-    self.tabBarController.viewControllers = @[waveNav, searchNav, likesNav, podcastsNav];
+    self.tabBarController.viewControllers = @[waveNav, exploreNav, concertsNav, collectionNav];
 
     // Style the tab bar
     self.tabBarController.tabBar.barTintColor = [UIColor colorWithWhite:0.12 alpha:1.0];
     self.tabBarController.tabBar.tintColor = [UIColor colorWithRed:1.0 green:0.8 blue:0.0 alpha:1.0];
-    [[UITabBarItem appearance] setTitleTextAttributes:@{NSForegroundColorAttributeName: [UIColor colorWithWhite:0.6 alpha:1.0]} forState:UIControlStateNormal];
-    [[UITabBarItem appearance] setTitleTextAttributes:@{NSForegroundColorAttributeName: [UIColor colorWithRed:1.0 green:0.8 blue:0.0 alpha:1.0]} forState:UIControlStateSelected];
+    [[UITabBarItem appearance] setTitleTextAttributes:@{NSForegroundColorAttributeName: [UIColor colorWithWhite:0.6 alpha:1.0], NSFontAttributeName: [UIFont systemFontOfSize:9]} forState:UIControlStateNormal];
+    [[UITabBarItem appearance] setTitleTextAttributes:@{NSForegroundColorAttributeName: [UIColor colorWithRed:1.0 green:0.8 blue:0.0 alpha:1.0], NSFontAttributeName: [UIFont systemFontOfSize:9]} forState:UIControlStateSelected];
 
     self.window.rootViewController = self.tabBarController;
 
@@ -96,7 +108,7 @@ static NSString *const kRedirectURI = @"yandexmusic://auth/callback";
 
     UITabBar *tabBar = self.tabBarController.tabBar;
     CGRect tabFrame = tabBar.frame;
-    CGFloat playerH = 56;
+    CGFloat playerH = 44;
     CGFloat playerY = tabFrame.origin.y - playerH;
     CGFloat playerW = tabFrame.size.width;
 
@@ -111,11 +123,11 @@ static NSString *const kRedirectURI = @"yandexmusic://auth/callback";
     if ([[url scheme] isEqualToString:@"yandexmusic"]) {
         NSString *fragment = [url fragment];
         if (fragment) {
-            // Parse access_token from URL fragment: access_token=xxx&token_type=bearer&expires_in=xxx
             NSDictionary *params = [self parseURLFragment:fragment];
             NSString *token = params[@"access_token"];
             if (token && token.length > 0) {
                 self.accessToken = token;
+                self.isGuestMode = NO;
                 [KeychainHelper saveToken:token];
                 [self showMainApp];
             }
@@ -141,6 +153,7 @@ static NSString *const kRedirectURI = @"yandexmusic://auth/callback";
 
 - (void)logout {
     self.accessToken = nil;
+    self.isGuestMode = NO;
     [KeychainHelper deleteToken];
     [[AudioPlayer sharedPlayer] stop];
     [MiniPlayerView sharedPlayer].hidden = YES;

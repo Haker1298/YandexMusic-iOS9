@@ -4,7 +4,6 @@
 #import "MiniPlayerView.h"
 
 static NSString *const kApiBase = @"https://api.music.yandex.net";
-static NSString *const kCoverBase = @"https://"; // prepend to cover URLs
 
 @implementation WebViewController
 
@@ -21,18 +20,16 @@ static NSString *const kCoverBase = @"https://"; // prepend to cover URLs
     [super viewDidLoad];
     self.view.backgroundColor = [UIColor colorWithRed:0.06 green:0.06 blue:0.08 alpha:1.0];
 
-    // Create top bar
-    [self setupTopBar];
+    BOOL showLogo = [self.pageName isEqualToString:@"wave"];
+    [self setupTopBar:showLogo];
 
-    // Create WKWebView
     CGRect webFrame = self.view.bounds;
-    webFrame.origin.y = 44; // below top bar
-    webFrame.size.height -= 44;
+    webFrame.origin.y = 32;
+    webFrame.size.height -= 32;
 
     WKWebViewConfiguration *config = [[WKWebViewConfiguration alloc] init];
     config.userContentController = [[WKUserContentController alloc] init];
 
-    // Register JS message handlers
     [config.userContentController addScriptMessageHandler:self name:@"ymapi"];
     [config.userContentController addScriptMessageHandler:self name:@"ymplayer"];
     [config.userContentController addScriptMessageHandler:self name:@"ymnav"];
@@ -44,7 +41,6 @@ static NSString *const kCoverBase = @"https://"; // prepend to cover URLs
     self.webView.opaque = NO;
     [self.view addSubview:self.webView];
 
-    // Load local HTML
     NSString *htmlPath = [[NSBundle mainBundle] pathForResource:self.pageName ofType:@"html" inDirectory:@"resources"];
     if (!htmlPath) {
         htmlPath = [[NSBundle mainBundle] pathForResource:self.pageName ofType:@"html"];
@@ -58,14 +54,13 @@ static NSString *const kCoverBase = @"https://"; // prepend to cover URLs
 
 - (void)viewDidAppear:(BOOL)animated {
     [super viewDidAppear:animated];
-    // Inject token after page loads
     if (self.webView.URL) {
         [self injectToken];
     }
 }
 
-- (void)setupTopBar {
-    UIView *topBar = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, 44)];
+- (void)setupTopBar:(BOOL)showLogo {
+    UIView *topBar = [[UIView alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, 32)];
     topBar.backgroundColor = [UIColor colorWithRed:0.06 green:0.06 blue:0.08 alpha:1.0];
     topBar.autoresizingMask = UIViewAutoresizingFlexibleWidth;
     [self.view addSubview:topBar];
@@ -74,54 +69,55 @@ static NSString *const kCoverBase = @"https://"; // prepend to cover URLs
     UIButton *accountBtn = [UIButton buttonWithType:UIButtonTypeCustom];
     UIImage *profileImg = [UIImage imageNamed:@"nav_profile"];
     if (profileImg) {
-        accountBtn.frame = CGRectMake(12, 8, 28, 28);
+        accountBtn.frame = CGRectMake(8, 4, 24, 24);
         [accountBtn setImage:profileImg forState:UIControlStateNormal];
         [accountBtn setTintColor:[UIColor whiteColor]];
     } else {
-        accountBtn.frame = CGRectMake(12, 8, 28, 28);
+        accountBtn.frame = CGRectMake(8, 4, 24, 24);
         [accountBtn setTitle:@"\u2302" forState:UIControlStateNormal];
         [accountBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-        accountBtn.titleLabel.font = [UIFont systemFontOfSize:22];
+        accountBtn.titleLabel.font = [UIFont systemFontOfSize:18];
     }
     [accountBtn addTarget:self action:@selector(accountTapped) forControlEvents:UIControlEventTouchUpInside];
     [topBar addSubview:accountBtn];
 
-    // Logo (center)
-    UIImageView *logoView = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"yandex_music_text_logo_white"]];
-    if (logoView.image) {
-        CGFloat logoW = logoView.image.size.width * 0.45;
-        CGFloat logoH = logoView.image.size.height * 0.45;
-        logoView.frame = CGRectMake((topBar.bounds.size.width - logoW) / 2, (44 - logoH) / 2, logoW, logoH);
-        logoView.contentMode = UIViewContentModeScaleAspectFit;
-        [topBar addSubview:logoView];
-    } else {
-        UILabel *logoLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 10, topBar.bounds.size.width, 24)];
-        logoLabel.text = @"\u042F\u043D\u0434\u0435\u043A\u0441 \u041C\u0443\u0437\u044B\u043A\u0430";
-        logoLabel.textAlignment = NSTextAlignmentCenter;
-        logoLabel.textColor = [UIColor whiteColor];
-        logoLabel.font = [UIFont boldSystemFontOfSize:16];
-        [topBar addSubview:logoLabel];
+    // Logo (center) - only on wave page
+    if (showLogo) {
+        UIImageView *logoView = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"yandex_music_text_logo_white"]];
+        if (logoView.image) {
+            CGFloat logoW = logoView.image.size.width * 0.22;
+            CGFloat logoH = logoView.image.size.height * 0.22;
+            logoView.frame = CGRectMake((topBar.bounds.size.width - logoW) / 2, (32 - logoH) / 2, logoW, logoH);
+            logoView.contentMode = UIViewContentModeScaleAspectFit;
+            [topBar addSubview:logoView];
+        } else {
+            UILabel *logoLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 7, topBar.bounds.size.width, 18)];
+            logoLabel.text = @"\u042F\u043D\u0434\u0435\u043A\u0441 \u041C\u0443\u0437\u044B\u043A\u0430";
+            logoLabel.textAlignment = NSTextAlignmentCenter;
+            logoLabel.textColor = [UIColor whiteColor];
+            logoLabel.font = [UIFont boldSystemFontOfSize:12];
+            [topBar addSubview:logoLabel];
+        }
     }
 
     // Search button (right)
     UIButton *searchBtn = [UIButton buttonWithType:UIButtonTypeCustom];
     UIImage *searchImg = [UIImage imageNamed:@"nav_search"];
     if (searchImg) {
-        searchBtn.frame = CGRectMake(topBar.bounds.size.width - 40, 8, 28, 28);
+        searchBtn.frame = CGRectMake(topBar.bounds.size.width - 32, 4, 24, 24);
         [searchBtn setImage:searchImg forState:UIControlStateNormal];
         [searchBtn setTintColor:[UIColor whiteColor]];
     } else {
-        searchBtn.frame = CGRectMake(topBar.bounds.size.width - 40, 8, 28, 28);
+        searchBtn.frame = CGRectMake(topBar.bounds.size.width - 32, 4, 24, 24);
         [searchBtn setTitle:@"\u2315" forState:UIControlStateNormal];
         [searchBtn setTitleColor:[UIColor whiteColor] forState:UIControlStateNormal];
-        searchBtn.titleLabel.font = [UIFont systemFontOfSize:22];
+        searchBtn.titleLabel.font = [UIFont systemFontOfSize:18];
     }
     [searchBtn addTarget:self action:@selector(searchTapped) forControlEvents:UIControlEventTouchUpInside];
     [topBar addSubview:searchBtn];
 }
 
 - (void)accountTapped {
-    // Show account/logout menu
     UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"Аккаунт"
                                                    message:@"Выйти из аккаунта?"
                                                   delegate:self
@@ -139,7 +135,6 @@ static NSString *const kCoverBase = @"https://"; // prepend to cover URLs
 }
 
 - (void)searchTapped {
-    // Switch to search tab
     AppDelegate *del = (AppDelegate *)[[UIApplication sharedApplication] delegate];
     if (del.tabBarController && del.tabBarController.viewControllers.count > 1) {
         del.tabBarController.selectedIndex = 1;
@@ -149,7 +144,7 @@ static NSString *const kCoverBase = @"https://"; // prepend to cover URLs
 - (void)injectToken {
     AppDelegate *del = (AppDelegate *)[[UIApplication sharedApplication] delegate];
     if (del.accessToken) {
-        NSString *js = [NSString stringWithFormat:@"window.__YM_TOKEN__ = '%@'; if(window.onTokenReady) window.onTokenReady();", del.accessToken];
+        NSString *js = [NSString stringWithFormat:@"window.__YM_TOKEN__ = '%@'; window.__GUEST__ = false; if(window.onTokenReady) window.onTokenReady();", del.accessToken];
         [self.webView evaluateJavaScript:js completionHandler:nil];
     } else {
         [self.webView evaluateJavaScript:@"window.__GUEST__ = true; if(window.onTokenReady) window.onTokenReady();" completionHandler:nil];
@@ -173,6 +168,13 @@ static NSString *const kCoverBase = @"https://"; // prepend to cover URLs
 
 #pragma mark - API Calls
 
+- (BOOL)isPublicPath:(NSString *)path {
+    if ([path hasPrefix:@"/search"] || [path hasPrefix:@"/landing3/"]) {
+        return YES;
+    }
+    return NO;
+}
+
 - (void)handleApiCall:(id)body {
     if (![body isKindOfClass:[NSDictionary class]]) return;
     NSDictionary *params = (NSDictionary *)body;
@@ -185,7 +187,10 @@ static NSString *const kCoverBase = @"https://"; // prepend to cover URLs
 
     AppDelegate *del = (AppDelegate *)[[UIApplication sharedApplication] delegate];
     NSString *token = del.accessToken;
-    if (!token) {
+
+    if (!token && [self isPublicPath:path]) {
+        // Allow without auth
+    } else if (!token) {
         NSString *js = [NSString stringWithFormat:@"window.__ymApiCallback('%@', '{\"error\":\"guest\",\"guestMode\":true}');", callbackId];
         dispatch_async(dispatch_get_main_queue(), ^{
             [self.webView evaluateJavaScript:js completionHandler:nil];
@@ -197,8 +202,11 @@ static NSString *const kCoverBase = @"https://"; // prepend to cover URLs
     NSURL *url = [NSURL URLWithString:urlStr];
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
     request.HTTPMethod = method;
-    [request setValue:[NSString stringWithFormat:@"OAuth %@", token] forHTTPHeaderField:@"Authorization"];
     [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+
+    if (token) {
+        [request setValue:[NSString stringWithFormat:@"OAuth %@", token] forHTTPHeaderField:@"Authorization"];
+    }
 
     if (reqBody && [method isEqualToString:@"POST"]) {
         NSError *jsonErr;
@@ -236,6 +244,13 @@ static NSString *const kCoverBase = @"https://"; // prepend to cover URLs
     NSDictionary *params = (NSDictionary *)body;
     NSString *action = params[@"action"];
 
+    AppDelegate *del = (AppDelegate *)[[UIApplication sharedApplication] delegate];
+    if (del.isGuestMode) {
+        NSString *js = @"window.__ymPlayerUpdate({\"error\":\"guest\",\"message\":\"\u0412\u043E\u0439\u0434\u0438\u0442\u0435 \u0432 \u0430\u043A\u043A\u0430\u0443\u043D\u0442 \u0434\u043B\u044F \u043F\u0440\u043E\u0441\u043B\u0443\u0448\u0438\u0432\u0430\u043D\u0438\u044F\"});";
+        [self.webView evaluateJavaScript:js completionHandler:nil];
+        return;
+    }
+
     AudioPlayer *player = [AudioPlayer sharedPlayer];
     player.webVC = self;
 
@@ -251,7 +266,6 @@ static NSString *const kCoverBase = @"https://"; // prepend to cover URLs
         if (queue && [queue isKindOfClass:[NSArray class]]) {
             player.queue = (NSArray *)queue;
             player.currentQueueIndex = 0;
-            // Find current track in queue
             for (int i = 0; i < queue.count; i++) {
                 NSDictionary *t = queue[i];
                 if ([t[@"id"] isEqualToString:trackId]) {
@@ -301,7 +315,6 @@ static NSString *const kCoverBase = @"https://"; // prepend to cover URLs
     NSString *js = [NSString stringWithFormat:@"window.__ymPlayerUpdate(%@);", escaped];
     [self.webView evaluateJavaScript:js completionHandler:nil];
 
-    // Update mini player
     MiniPlayerView *mp = [MiniPlayerView sharedPlayer];
     mp.hidden = NO;
     mp.titleLabel.text = state[@"title"];
@@ -316,7 +329,6 @@ static NSString *const kCoverBase = @"https://"; // prepend to cover URLs
     NSString *action = params[@"action"];
 
     if ([action isEqualToString:@"playTrack"]) {
-        // Navigate to wave tab and play
         AppDelegate *del = (AppDelegate *)[[UIApplication sharedApplication] delegate];
         del.tabBarController.selectedIndex = 0;
     }

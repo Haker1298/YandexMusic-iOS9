@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="stylesheet" href="app.css">
+<title>Что послушать</title>
+</head>
+<body>
+<div id="content">
+    <div class="loading"><div class="spinner"></div><br>Загрузка...</div>
+</div>
+
+<script src="app.js"></script>
+<script>
+window.onPageReady = function(token) {
+    loadExplore();
+};
+
+function loadExplore() {
+    var el = document.getElementById('content');
+    YM.showLoading('content');
+
+    YM.apiCall('GET', '/landing3/main?blocks=new-releases,new-playlists,promotions,chart', null, function(data) {
+        if (data.error) {
+            YM.showError('content', 'Не удалось загрузить');
+            return;
+        }
+        renderExplore(data.result);
+    });
+}
+
+function renderExplore(result) {
+    if (!result || !result.blocks) {
+        document.getElementById('content').innerHTML = '<div class="empty-state"><div class="empty-text">Недоступно</div></div>';
+        return;
+    }
+    var el = document.getElementById('content');
+    var html = '';
+    var blocks = result.blocks;
+
+    for (var b = 0; b < blocks.length; b++) {
+        var block = blocks[b];
+        var title = block.title || block.type || '';
+        if (!title) continue;
+
+        html += '<div class="section-header">' + YM.escapeHtml(title) + '</div>';
+
+        if (block.type === 'chart') {
+            var tracks = extractTracks(block);
+            if (tracks.length > 0) {
+                var listId = 'block-' + b;
+                html += '<div class="track-list" id="' + listId + '"></div>';
+                el.innerHTML = html;
+                YM.renderTrackList(tracks, listId);
+                html = el.innerHTML;
+                (function(lid, tks) {
+                    document.getElementById(lid)._tracks = tks;
+                })(listId, tracks);
+            }
+        } else {
+            // Render as horizontal cards
+            var entities = block.entities || [];
+            if (entities.length > 0) {
+                html += '<div class="hscroll-row">';
+                for (var e = 0; e < Math.min(entities.length, 15); e++) {
+                    var item = entities[e];
+                    var data = item.data || item;
+                    var cover = '';
+                    var t = data.title || data.name || '';
+                    var sub = '';
+                    if (data.coverUri) {
+                        cover = YM.getCoverUrl(data.coverUri, '200x200');
+                    } else if (data.ogImage) {
+                        cover = data.ogImage;
+                    }
+                    if (data.subtitle) sub = data.subtitle;
+                    else if (data.description) sub = data.description;
+
+                    html += '<div class="hscroll-card">';
+                    html += '<img class="hc-cover" src="' + cover + '" onerror="this.style.display=\'none\'">';
+                    html += '<div class="hc-title">' + YM.escapeHtml(t) + '</div>';
+                    html += '</div>';
+                }
+                html += '</div>';
+            }
+        }
+    }
+
+    el.innerHTML = html;
+}
+
+function extractTracks(block) {
+    var tracks = [];
+    var entities = block.entities || [];
+    for (var i = 0; i < entities.length; i++) {
+        var t = entities[i].data || entities[i];
+        if (t.id && t.title) {
+            tracks.push(t);
+        }
+    }
+    return tracks;
+}
+
+YM.onTrackClick = function(idx) {
+    var lists = document.querySelectorAll('.track-list');
+    for (var i = 0; i < lists.length; i++) {
+        if (lists[i]._tracks && lists[i]._tracks[idx]) {
+            YM.playTrack(lists[i]._tracks[idx], '');
+            return;
+        }
+    }
+};
+
+window.onPlayerUpdate = function(state) {};
+</script>
+</body></html>

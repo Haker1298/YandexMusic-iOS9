@@ -18,19 +18,64 @@ var currentTrackIndex = -1;
 
 window.onPageReady = function(token) {
     if (window.__GUEST__) {
-        showGuestScreen();
+        showGuestSearch();
         return;
     }
     loadDashboard();
 };
 
-function showGuestScreen() {
+function showGuestSearch() {
     var el = document.getElementById('content');
-    el.innerHTML = '<div style="text-align:center;padding-top:60px;">' +
-        '<div style="font-size:48px;margin-bottom:16px;">🎵</div>' +
-        '<div style="color:#fff;font-size:20px;font-weight:bold;margin-bottom:8px;">Гостевой режим</div>' +
-        '<div style="color:#888;font-size:14px;padding:0 30px;line-height:1.5;">Войдите в аккаунт чтобы слушать персональные станции и сохранять музыку</div>' +
-        '</div>';
+    var html = '';
+    html += '<div style="text-align:center;padding:24px 16px 8px;">';
+    html += '<div style="color:#fff;font-size:16px;font-weight:bold;margin-bottom:4px;">Гостевой режим</div>';
+    html += '<div style="color:#888;font-size:12px;">Войдите для прослушивания</div>';
+    html += '</div>';
+    html += '<div class="search-box"><div class="search-input-wrap">';
+    html += '<input type="search" class="search-input" id="guest-search" placeholder="Поиск треков..." autocorrect="off" autocomplete="off">';
+    html += '</div></div>';
+    html += '<div id="guest-results"></div>';
+    el.innerHTML = html;
+
+    var input = document.getElementById('guest-search');
+    var searchTimeout = null;
+    input.addEventListener('input', function() {
+        var q = this.value.trim();
+        if (searchTimeout) clearTimeout(searchTimeout);
+        if (q.length < 2) {
+            document.getElementById('guest-results').innerHTML = '';
+            return;
+        }
+        searchTimeout = setTimeout(function() { doGuestSearch(q); }, 600);
+    });
+    input.addEventListener('keydown', function(e) {
+        if (e.keyCode === 13) {
+            if (searchTimeout) clearTimeout(searchTimeout);
+            doGuestSearch(this.value.trim());
+        }
+    });
+}
+
+function doGuestSearch(query) {
+    if (!query || query.length < 2) return;
+    var el = document.getElementById('guest-results');
+    el.innerHTML = '<div class="loading"><div class="spinner"></div><br>Поиск...</div>';
+
+    YM.apiCall('GET', '/search?text=' + encodeURIComponent(query) + '&type=tracks&page=0', null, function(data) {
+        if (data.error) {
+            el.innerHTML = '<div class="error-msg">Ошибка поиска</div>';
+            return;
+        }
+        var result = data.result;
+        if (!result) return;
+        var tracks = (result.tracks || {}).results || [];
+        if (tracks.length === 0) {
+            el.innerHTML = '<div class="empty-state"><div class="empty-text">Ничего не найдено</div></div>';
+            return;
+        }
+        el.innerHTML = '<div class="track-list" id="guest-tracks"></div>';
+        YM.renderTrackList(tracks, 'guest-tracks');
+    });
 }
 
 function loadDashboard() {
@@ -51,12 +96,11 @@ function renderDashboard(result) {
     var stations = result.stations || [];
     var html = '';
 
-    // Find "Моя Волна" (personal radio)
     var waveStation = null;
     for (var i = 0; i < stations.length; i++) {
         var s = stations[i];
         var parent = s.parent || {};
-        if (parent.id === 'user:onyourwave' || s.id === 'user:onyourwave' || 
+        if (parent.id === 'user:onyourwave' || s.id === 'user:onyourwave' ||
             (s.name && (s.name.indexOf('Моя волна') > -1 || s.name.indexOf('Волна') > -1))) {
             waveStation = s;
             break;
@@ -73,7 +117,6 @@ function renderDashboard(result) {
         html += '</div>';
     }
 
-    // Show other stations as suggestions
     var otherStations = [];
     for (var j = 0; j < stations.length; j++) {
         if (stations[j] !== waveStation && stations[j].name) {
@@ -96,9 +139,7 @@ function renderDashboard(result) {
 
 function startWave() {
     var stationId = currentStationId;
-    if (!stationId) {
-        stationId = 'user:onyourwave';
-    }
+    if (!stationId) stationId = 'user:onyourwave';
     playStation(stationId, 'Моя Волна');
 }
 
@@ -106,7 +147,6 @@ function playStation(stationId, stationName) {
     var el = document.getElementById('content');
     el.innerHTML = '<div class="loading"><div class="spinner"></div><br>Загрузка треков...</div>';
 
-    // Request tracks from station
     var body = {
         queue: {
             station: {
@@ -128,7 +168,6 @@ function playStation(stationId, stationName) {
             var track = seq[i].track || seq[i].trackedTracks;
             if (track) {
                 if (track.tracks) {
-                    // nested
                     for (var j = 0; j < track.tracks.length; j++) {
                         tracks.push(track.tracks[j]);
                     }
@@ -157,37 +196,32 @@ function playCurrentTrack(stationName) {
     }
     var coverUrl = YM.getCoverUrl(track.coverUri, '200x200');
 
-    // Render now playing UI
     var html = '';
     html += '<div class="section-header" style="text-align:center;padding-top:16px;">' + YM.escapeHtml(stationName || 'Станция') + '</div>';
     html += '<div class="now-playing" id="np">';
-    html += '<img class="np-cover" src="' + coverUrl + '" onerror="this.style.display=' + "'none'" + '">' ;
+    html += '<img class="np-cover" src="' + coverUrl + '" onerror="this.style.display=' + "'none'" + '">';
     html += '<div class="np-title" id="np-title">' + YM.escapeHtml(track.title || '') + '</div>';
     html += '<div class="np-artist" id="np-artist">' + YM.escapeHtml(artistName) + '</div>';
     html += '<div class="np-progress"><div class="np-progress-fill" id="np-fill"></div></div>';
     html += '<div class="np-time"><span class="np-current" id="np-current">0:00</span><span class="np-duration" id="np-dur">' + YM.formatDuration(track.durationMs ? track.durationMs/1000 : 0) + '</span></div>';
     html += '</div>';
 
-    // Wave feedback buttons
     html += '<div class="wave-controls">';
     html += '<button class="wc-btn" onclick="skipPrev()"><img src="player_prev.png" style="width:22px;height:22px;margin-top:17px;"></button>';
     html += '<button class="wc-btn" onclick="skipNext()"><img src="player_next.png" style="width:22px;height:22px;margin-top:17px;"></button>';
     html += '</div>';
 
-    // Queue
     html += '<div class="section-header" style="font-size:16px;padding-top:8px;">Далее в эфире</div>';
     html += '<div class="track-list" id="queue-list"></div>';
 
     document.getElementById('content').innerHTML = html;
 
-    // Render queue (remaining tracks)
     var remaining = [];
     for (var i = currentTrackIndex + 1; i < currentTracks.length && remaining.length < 10; i++) {
         remaining.push(currentTracks[i]);
     }
     YM.renderTrackList(remaining, 'queue-list');
 
-    // Override track click to play from queue
     window.YM_onTrackClick = function(idx) {
         currentTrackIndex = currentTrackIndex + 1 + idx;
         playCurrentTrack(stationName || 'Станция');
@@ -195,7 +229,6 @@ function playCurrentTrack(stationName) {
     var ql = document.getElementById('queue-list');
     if (ql) ql._trackClickHandler = 'YM_onTrackClick';
 
-    // Actually play via native
     YM.playTrack(track, '', currentTracks);
 }
 
@@ -231,15 +264,10 @@ window.onPlayerUpdate = function(state) {
     if (curEl && state.currentTime >= 0) {
         curEl.textContent = YM.formatDuration(state.currentTime);
     }
-    if (titleEl && state.title) {
-        titleEl.textContent = state.title;
-    }
-    if (artistEl && state.artist) {
-        artistEl.textContent = state.artist;
-    }
+    if (titleEl && state.title) titleEl.textContent = state.title;
+    if (artistEl && state.artist) artistEl.textContent = state.artist;
 };
 
-// Global click handler for track lists
 YM.onTrackClick = function(idx) {
     if (window.YM_onTrackClick) {
         window.YM_onTrackClick(idx);
