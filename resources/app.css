@@ -1,0 +1,475 @@
+/* ===== Yandex Music - iOS 9 Compatible Styles ===== */
+
+* {
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: rgba(255,255,255,0.1);
+    -webkit-box-sizing: border-box;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: -apple-system, "Helvetica Neue", Helvetica, Arial, sans-serif;
+    background-color: #0f0f14;
+    color: #ffffff;
+    font-size: 15px;
+    line-height: 1.4;
+    -webkit-text-size-adjust: 100%;
+    overflow-x: hidden;
+    padding-bottom: 20px;
+}
+
+/* Loading */
+.loading {
+    text-align: center;
+    padding: 60px 20px;
+    color: #999;
+    font-size: 14px;
+}
+.loading .spinner {
+    display: inline-block;
+    width: 28px;
+    height: 28px;
+    border: 2px solid #333;
+    border-top-color: #FFCC00;
+    border-radius: 50%;
+    -webkit-animation: spin 0.8s linear infinite;
+    animation: spin 0.8s linear infinite;
+    margin-bottom: 12px;
+}
+@-webkit-keyframes spin {
+    to { -webkit-transform: rotate(360deg); }
+}
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+/* Section headers */
+.section-header {
+    padding: 20px 16px 10px;
+    font-size: 20px;
+    font-weight: 700;
+    color: #fff;
+}
+
+.section-sub {
+    padding: 0 16px 12px;
+    font-size: 13px;
+    color: #888;
+}
+
+/* Track list */
+.track-list {
+    padding: 0;
+}
+
+.track-item {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+    padding: 10px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    text-decoration: none;
+    color: #fff;
+}
+.track-item:active {
+    background-color: rgba(255,255,255,0.05);
+}
+
+.track-cover {
+    display: table-cell;
+    width: 48px;
+    height: 48px;
+    vertical-align: top;
+    padding-right: 12px;
+}
+.track-cover img {
+    width: 48px;
+    height: 48px;
+    border-radius: 6px;
+    display: block;
+    background-color: #1a1a22;
+}
+
+.track-info {
+    display: table-cell;
+    vertical-align: middle;
+    padding-right: 12px;
+    overflow: hidden;
+}
+.track-title {
+    font-size: 15px;
+    font-weight: 500;
+    color: #fff;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.track-artist {
+    font-size: 13px;
+    color: #888;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-top: 2px;
+}
+
+.track-right {
+    display: table-cell;
+    vertical-align: middle;
+    text-align: right;
+    width: 50px;
+}
+.track-duration {
+    font-size: 13px;
+    color: #666;
+}
+
+.track-like-btn {
+    display: inline-block;
+    width: 28px;
+    height: 28px;
+    margin-top: 4px;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    vertical-align: middle;
+}
+.track-like-btn img {
+    width: 22px;
+    height: 22px;
+    opacity: 0.5;
+}
+.track-like-btn.liked img {
+    opacity: 1;
+}
+
+/* Search */
+.search-box {
+    padding: 12px 16px;
+}
+.search-input-wrap {
+    background-color: #1a1a22;
+    border-radius: 10px;
+    padding: 0 12px;
+    height: 40px;
+    position: relative;
+}
+.search-input {
+    width: 100%;
+    height: 40px;
+    border: none;
+    outline: none;
+    background: transparent;
+    color: #fff;
+    font-size: 15px;
+    -webkit-appearance: none;
+}
+.search-input::-webkit-input-placeholder {
+    color: #555;
+}
+
+/* Wave station card */
+.wave-card {
+    margin: 12px 16px;
+    background-color: #1a1a22;
+    border-radius: 12px;
+    padding: 20px;
+    text-align: center;
+}
+.wave-card .station-name {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 6px;
+}
+.wave-card .station-desc {
+    font-size: 13px;
+    color: #888;
+    margin-bottom: 16px;
+}
+
+.btn-play {
+    display: inline-block;
+    background-color: #FFCC00;
+    color: #000;
+    border: none;
+    border-radius: 24px;
+    padding: 10px 32px;
+    font-size: 15px;
+    font-weight: 700;
+    cursor: pointer;
+    -webkit-appearance: none;
+}
+.btn-play:active {
+    background-color: #e6b800;
+}
+
+.btn-secondary {
+    display: inline-block;
+    background-color: rgba(255,255,255,0.1);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 20px;
+    font-size: 14px;
+    cursor: pointer;
+    margin: 4px;
+    -webkit-appearance: none;
+}
+.btn-secondary:active {
+    background-color: rgba(255,255,255,0.18);
+}
+
+/* Wave feedback buttons */
+.wave-controls {
+    text-align: center;
+    padding: 16px 0 24px;
+}
+.wave-controls .wc-btn {
+    display: inline-block;
+    width: 56px;
+    height: 56px;
+    margin: 0 12px;
+    border-radius: 50%;
+    background-color: rgba(255,255,255,0.08);
+    border: none;
+    cursor: pointer;
+    vertical-align: middle;
+    -webkit-appearance: none;
+}
+.wave-controls .wc-btn:active {
+    background-color: rgba(255,255,255,0.15);
+}
+.wave-controls .wc-btn img {
+    width: 28px;
+    height: 28px;
+    margin-top: 14px;
+}
+.wave-controls .wc-btn.skip-next img {
+    -webkit-transform: scaleX(-1);
+}
+
+/* Now playing in wave */
+.now-playing {
+    text-align: center;
+    padding: 20px 16px;
+}
+.now-playing .np-cover {
+    width: 200px;
+    height: 200px;
+    border-radius: 12px;
+    margin: 0 auto 16px;
+    display: block;
+    background-color: #1a1a22;
+}
+.now-playing .np-title {
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 4px;
+}
+.now-playing .np-artist {
+    font-size: 14px;
+    color: #888;
+}
+.now-playing .np-progress {
+    width: 240px;
+    height: 3px;
+    background-color: #333;
+    border-radius: 2px;
+    margin: 16px auto 6px;
+    overflow: hidden;
+}
+.now-playing .np-progress-fill {
+    height: 100%;
+    background-color: #FFCC00;
+    border-radius: 2px;
+    width: 0%;
+}
+.now-playing .np-time {
+    font-size: 12px;
+    color: #666;
+}
+.now-playing .np-time span {
+    display: inline-block;
+    width: 48%;
+    text-align: center;
+}
+.now-playing .np-time .np-current {
+    text-align: right;
+}
+.now-playing .np-time .np-duration {
+    text-align: left;
+}
+
+/* Podcast items */
+.podcast-item {
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.podcast-cover {
+    display: table-cell;
+    width: 60px;
+    height: 60px;
+    vertical-align: top;
+    padding-right: 12px;
+}
+.podcast-cover img {
+    width: 60px;
+    height: 60px;
+    border-radius: 8px;
+    display: block;
+    background-color: #1a1a22;
+}
+.podcast-info {
+    display: table-cell;
+    vertical-align: middle;
+}
+.podcast-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #fff;
+}
+.podcast-subtitle {
+    font-size: 13px;
+    color: #888;
+    margin-top: 2px;
+}
+
+/* Empty state */
+.empty-state {
+    text-align: center;
+    padding: 60px 30px;
+    color: #666;
+}
+.empty-state .empty-icon {
+    font-size: 48px;
+    margin-bottom: 16px;
+}
+.empty-state .empty-text {
+    font-size: 15px;
+}
+
+/* Error */
+.error-msg {
+    text-align: center;
+    padding: 40px 20px;
+    color: #ff4444;
+    font-size: 14px;
+}
+
+/* Inline player (per-page) */
+.inline-player {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 60px;
+    background-color: rgba(20,20,26,0.97);
+    border-top: 1px solid rgba(255,255,255,0.08);
+    display: table;
+    width: 100%;
+    table-layout: fixed;
+    z-index: 100;
+}
+.inline-player .ip-info {
+    display: table-cell;
+    vertical-align: middle;
+    padding: 0 12px;
+    overflow: hidden;
+}
+.inline-player .ip-title {
+    font-size: 14px;
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.inline-player .ip-artist {
+    font-size: 12px;
+    color: #888;
+}
+.inline-player .ip-controls {
+    display: table-cell;
+    width: 100px;
+    text-align: center;
+    vertical-align: middle;
+}
+.inline-player .ip-btn {
+    display: inline-block;
+    width: 36px;
+    height: 36px;
+    border: none;
+    background: none;
+    padding: 0;
+    margin: 0 4px;
+    cursor: pointer;
+    vertical-align: middle;
+    -webkit-appearance: none;
+}
+.inline-player .ip-btn img {
+    width: 28px;
+    height: 28px;
+}
+
+/* Suggestions / chips */
+.suggestions {
+    padding: 8px 16px;
+}
+.suggestion-chip {
+    display: inline-block;
+    background-color: #1a1a22;
+    color: #ccc;
+    border: 1px solid #2a2a34;
+    border-radius: 16px;
+    padding: 6px 14px;
+    font-size: 13px;
+    margin: 4px;
+    cursor: pointer;
+    text-decoration: none;
+}
+.suggestion-chip:active {
+    background-color: #252530;
+}
+
+/* Scrollable row */
+.hscroll-row {
+    padding: 0 0 16px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    white-space: nowrap;
+}
+.hscroll-row::-webkit-scrollbar { display: none; }
+
+.hscroll-card {
+    display: inline-block;
+    width: 140px;
+    margin-left: 16px;
+    vertical-align: top;
+    text-decoration: none;
+    color: #fff;
+}
+.hscroll-card:first-child {
+    margin-left: 0;
+}
+.hscroll-card .hc-cover {
+    width: 140px;
+    height: 140px;
+    border-radius: 10px;
+    display: block;
+    background-color: #1a1a22;
+    margin-bottom: 6px;
+}
+.hscroll-card .hc-title {
+    font-size: 13px;
+    font-weight: 500;
+    white-space: normal;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.3;
+}

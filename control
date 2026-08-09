@@ -1,0 +1,9 @@
+Package: com.haker1928.yandexmusic
+Name: YandexMusic
+Depends: mobilesubstrate, firmware (>= 9.0)
+Version: 1.0.0
+Architecture: iphoneos-arm
+Description: Yandex Music client for iOS 9+
+Maintainer: haker1928
+Author: haker1928
+Section: Applications

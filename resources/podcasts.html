@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="stylesheet" href="app.css">
+<title>Подкасты</title>
+</head>
+<body>
+<div id="content">
+    <div class="loading"><div class="spinner"></div><br>Загрузка...</div>
+</div>
+
+<script src="app.js"></script>
+<script>
+window.onPageReady = function(token) {
+    loadPodcasts();
+};
+
+function loadPodcasts() {
+    YM.showLoading('content');
+
+    // Get podcast landing/bundles
+    YM.apiCall('GET', '/landing3/podcasts?blocks=personal_podcasts,new_episodes,popular_podcasts', null, function(data) {
+        if (data.error || !data.result) {
+            loadPodcastsFallback();
+            return;
+        }
+        var blocks = data.result.blocks || [];
+        var html = '';
+
+        for (var b = 0; b < blocks.length; b++) {
+            var block = blocks[b];
+            var title = block.title || block.name || '';
+            var entities = block.entities || block.data || [];
+
+            if (title) {
+                html += '<div class="section-header">' + YM.escapeHtml(title) + '</div>';
+            }
+
+            if (entities.length > 0) {
+                html += '<div class="hscroll-row">';
+                for (var i = 0; i < entities.length; i++) {
+                    var item = entities[i].data || entities[i];
+                    var name = item.title || item.name || '';
+                    var coverUri = item.coverUri || (item.cover && item.cover.uri) || '';
+                    var coverSrc = coverUri ? 'https://' + coverUri.replace('%%', '200x200') : '';
+                    var id = item.id || '';
+                    var type = item.type || '';
+
+                    html += '<div class="hscroll-card" onclick="openPodcast(\'' + id + '\', \'' + YM.escapeHtml(name).replace(/'/g, "\\'") + '\')">';
+                    html += '<img class="hc-cover" src="' + coverSrc + '" onerror="this.style.display=' + "'none'" + '">' ;
+                    html += '<div class="hc-title">' + YM.escapeHtml(name) + '</div>';
+                    html += '</div>';
+                }
+                html += '</div>';
+            }
+        }
+
+        if (html === '') {
+            loadPodcastsFallback();
+        } else {
+            document.getElementById('content').innerHTML = html;
+        }
+    });
+}
+
+function loadPodcastsFallback() {
+    YM.apiCall('GET', '/search?text=podcast&type=all&page=0', null, function(data) {
+        if (data.error || !data.result) {
+            document.getElementById('content').innerHTML = '<div class="empty-state"><div class="empty-icon">🎙</div><div class="empty-text">Подкасты недоступны</div></div>';
+            return;
+        }
+        // Try to extract podcast data
+        var podcasts = data.result.podcasts || data.result.artists || [];
+        if (podcasts.results) podcasts = podcasts.results;
+
+        var html = '<div class="section-header">Подкасты</div>';
+        if (podcasts.length === 0) {
+            html += '<div class="empty-state"><div class="empty-text">Подкасты не найдены</div></div>';
+        } else {
+            for (var i = 0; i < podcasts.length; i++) {
+                var p = podcasts[i];
+                var name = p.title || p.name || '';
+                var desc = p.description || '';
+                var coverUri = p.coverUri || (p.cover && p.cover.uri) || '';
+                var coverSrc = coverUri ? 'https://' + coverUri.replace('%%', '200x200') : '';
+                var id = p.id || '';
+
+                html += '<div class="podcast-item" onclick="openPodcast(\'' + id + '\', \'' + YM.escapeHtml(name).replace(/'/g, "\\'") + '\')">';
+                html += '<div class="podcast-cover"><img src="' + coverSrc + '" onerror="this.style.display=' + "'none'" + '">' ;
+                html += '<div class="podcast-info">';
+                html += '<div class="podcast-title">' + YM.escapeHtml(name) + '</div>';
+                html += '<div class="podcast-subtitle">' + YM.escapeHtml(desc) + '</div>';
+                html += '</div></div>';
+            }
+        }
+        document.getElementById('content').innerHTML = html;
+    });
+}
+
+function openPodcast(id, name) {
+    var el = document.getElementById('content');
+    el.innerHTML = '<div class="section-header">' + YM.escapeHtml(name) + '</div><div class="loading"><div class="spinner"></div><br>Загрузка эпизодов...</div>';
+
+    YM.apiCall('GET', '/podcasts/' + id + '/episodes', null, function(data) {
+        if (data.error || !data.result) {
+            el.innerHTML = '<div class="error-msg">Не удалось загрузить эпизоды</div>';
+            return;
+        }
+        var episodes = data.result || [];
+        if (episodes.length === 0) {
+            el.innerHTML = '<div class="empty-state"><div class="empty-text">Нет эпизодов</div></div>';
+            return;
+        }
+
+        var html = '<div class="section-header" style="font-size:16px;">' + YM.escapeHtml(name) + '</div>';
+        html += '<div class="track-list" id="ep-list"></div>';
+        el.innerHTML = html;
+
+        // Render episodes as track-like items
+        var trackLikeItems = [];
+        for (var i = 0; i < episodes.length; i++) {
+            var ep = episodes[i];
+            trackLikeItems.push({
+                id: ep.id || ep.episodeId || '',
+                title: ep.title || '',
+                artists: [{name: ep.publisher || name || ''}],
+                coverUri: '',
+                durationMs: ep.durationMs || 0,
+                available: true
+            });
+        }
+        YM.renderTrackList(trackLikeItems, 'ep-list');
+    });
+}
+
+YM.onTrackClick = function(idx) {
+    var list = document.getElementById('ep-list');
+    if (!list || !list._tracks) return;
+    var track = list._tracks[idx];
+    if (track) {
+        // Podcast episodes might not play through the same track API
+        // Show a message for now
+        alert('Воспроизведение подкастов в разработке');
+    }
+};
+
+window.onPlayerUpdate = function(state) {};
+</script>
+</body></html>

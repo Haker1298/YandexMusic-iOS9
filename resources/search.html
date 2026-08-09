@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="stylesheet" href="app.css">
+<title>Поиск</title>
+</head>
+<body>
+<div class="search-box">
+  <div class="search-input-wrap">
+    <input type="search" class="search-input" id="search-input" placeholder="Треки, исполнители, альбомы..." autocorrect="off" autocomplete="off">
+  </div>
+</div>
+<div id="suggestions" class="suggestions"></div>
+<div id="results"></div>
+
+<script src="app.js"></script>
+<script>
+var searchTimeout = null;
+var searchDebounceMs = 600;
+
+window.onPageReady = function(token) {
+    loadSuggestions();
+};
+
+function loadSuggestions() {
+    YM.apiCall('GET', '/search/suggestions?types=tracks,artists,albums,podcasts', null, function(data) {
+        if (data.error || !data.result) return;
+        var sug = data.result.suggestions;
+        if (!sug || sug.length === 0) {
+            // Load chart as default content
+            loadChart();
+            return;
+        }
+        var html = '';
+        for (var i = 0; i < Math.min(sug.length, 10); i++) {
+            var s = sug[i];
+            if (s.text) {
+                html += '<div class="suggestion-chip" onclick="doSearch(\'' + YM.escapeHtml(s.text).replace(/'/g, "\\'") + '\')">' + YM.escapeHtml(s.text) + '</div>';
+            }
+        }
+        document.getElementById('suggestions').innerHTML = html;
+        loadChart();
+    });
+}
+
+function loadChart() {
+    var el = document.getElementById('results');
+    el.innerHTML = '<div class="section-header">Чарт</div>';
+    el.innerHTML += '<div id="chart-list" class="track-list"></div>';
+    YM.showLoading('chart-list');
+
+    YM.apiCall('GET', '/landing3/main?blocks=chart', null, function(data) {
+        if (data.error || !data.result) {
+            document.getElementById('chart-list').innerHTML = '';
+            return;
+        }
+        var blocks = data.result.blocks || [];
+        var chartTracks = [];
+        for (var i = 0; i < blocks.length; i++) {
+            if (blocks[i].type === 'chart' || (blocks[i].id && blocks[i].id.indexOf('chart') > -1)) {
+                var entities = blocks[i].entities || [];
+                for (var j = 0; j < entities.length; j++) {
+                    var item = entities[j];
+                    var track = item.data || item;
+                    if (track.id) {
+                        chartTracks.push(track);
+                    }
+                }
+                break;
+            }
+        }
+        if (chartTracks.length === 0) {
+            document.getElementById('chart-list').innerHTML = '<div class="empty-state"><div class="empty-text">Чарт недоступен</div></div>';
+            return;
+        }
+        YM.renderTrackList(chartTracks, 'chart-list');
+    });
+}
+
+// Search input handler
+var input = document.getElementById('search-input');
+if (input) {
+    input.addEventListener('input', function() {
+        var q = this.value.trim();
+        if (searchTimeout) clearTimeout(searchTimeout);
+        if (q.length < 2) {
+            document.getElementById('results').innerHTML = '';
+            return;
+        }
+        searchTimeout = setTimeout(function() { doSearch(q); }, searchDebounceMs);
+    });
+    input.addEventListener('keydown', function(e) {
+        if (e.keyCode === 13) {
+            if (searchTimeout) clearTimeout(searchTimeout);
+            doSearch(this.value.trim());
+        }
+    });
+}
+
+function doSearch(query) {
+    if (!query || query.length < 2) return;
+    document.getElementById('suggestions').innerHTML = '';
+    var el = document.getElementById('results');
+    el.innerHTML = '<div class="loading"><div class="spinner"></div><br>Поиск...</div>';
+
+    YM.apiCall('GET', '/search?text=' + encodeURIComponent(query) + '&type=all&page=0', null, function(data) {
+        if (data.error) {
+            el.innerHTML = '<div class="error-msg">Ошибка поиска</div>';
+            return;
+        }
+        renderSearchResults(data.result);
+    });
+}
+
+function renderSearchResults(result) {
+    if (!result) return;
+    var el = document.getElementById('results');
+    var html = '';
+
+    // Tracks
+    var tracks = result.tracks || {};
+    var trackResults = tracks.results || [];
+    if (trackResults.length > 0) {
+        html += '<div class="section-header">Треки</div>';
+        html += '<div class="track-list" id="search-tracks"></div>';
+    }
+
+    // Artists
+    var artists = result.artists || {};
+    var artistResults = artists.results || [];
+    if (artistResults.length > 0) {
+        html += '<div class="section-header">Исполнители</div>';
+        html += '<div class="suggestions">';
+        for (var a = 0; a < Math.min(artistResults.length, 6); a++) {
+            var ar = artistResults[a];
+            html += '<div class="suggestion-chip" onclick="searchArtist(\'' + (ar.id || '') + '\')">' + YM.escapeHtml(ar.name || '') + '</div>';
+        }
+        html += '</div>';
+    }
+
+    el.innerHTML = html;
+
+    if (trackResults.length > 0) {
+        YM.renderTrackList(trackResults, 'search-tracks');
+    }
+
+    if (trackResults.length === 0 && artistResults.length === 0) {
+        el.innerHTML = '<div class="empty-state"><div class="empty-text">Ничего не найдено</div></div>';
+    }
+}
+
+function searchArtist(artistId) {
+    var el = document.getElementById('results');
+    el.innerHTML = '<div class="loading"><div class="spinner"></div><br>Загрузка...</div>';
+
+    YM.apiCall('GET', '/artists/' + artistId + '/tracks?page=0&pageSize=20', null, function(data) {
+        if (data.error || !data.result) {
+            el.innerHTML = '<div class="error-msg">Ошибка загрузки</div>';
+            return;
+        }
+        var tracks = data.result.tracks || [];
+        if (tracks.length === 0) {
+            el.innerHTML = '<div class="empty-state"><div class="empty-text">Нет треков</div></div>';
+            return;
+        }
+        el.innerHTML = '<div class="track-list" id="artist-tracks"></div>';
+        YM.renderTrackList(tracks, 'artist-tracks');
+    });
+}
+
+YM.onTrackClick = function(idx) {
+    var list = document.getElementById('search-tracks') || document.getElementById('chart-list') || document.getElementById('artist-tracks');
+    if (!list || !list._tracks) return;
+    var track = list._tracks[idx];
+    if (track) {
+        YM.playTrack(track, '');
+    }
+};
+
+window.onPlayerUpdate = function(state) {
+    // Minimal - mini player handles this natively
+};
+</script>
+</body></html>

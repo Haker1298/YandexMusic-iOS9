@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<link rel="stylesheet" href="app.css">
+<title>Мне нравится</title>
+</head>
+<body>
+<div id="content">
+    <div class="loading"><div class="spinner"></div><br>Загрузка...</div>
+</div>
+
+<script src="app.js"></script>
+<script>
+window.onPageReady = function(token) {
+    loadLikes();
+};
+
+function loadLikes() {
+    YM.showLoading('content');
+
+    // Get user's liked tracks playlist
+    YM.apiCall('GET', '/users/me/likes/tracks', null, function(data) {
+        if (data.error) {
+            YM.showError('content', 'Не удалось загрузить любимые треки');
+            return;
+        }
+        var tracks = data.result || [];
+        if (tracks.length === 0) {
+            document.getElementById('content').innerHTML = '<div class="empty-state"><div class="empty-icon">♥</div><div class="empty-text">Здесь пока пусто\nНажмите ❤️ в плеере, чтобы добавить трек</div></div>';
+            return;
+        }
+        // tracks is an array of track IDs like ["123", "456"]
+        // Need to fetch full track info
+        var idsStr = tracks.slice(0, 50).join(',');
+        YM.apiCall('GET', '/tracks/?ids=' + idsStr, null, function(trackData) {
+            if (trackData.error || !trackData.result) {
+                YM.showError('content', 'Ошибка загрузки треков');
+                return;
+            }
+            var fullTracks = trackData.result;
+            if (!fullTracks || fullTracks.length === 0) {
+                document.getElementById('content').innerHTML = '<div class="empty-state"><div class="empty-text">Нет треков</div></div>';
+                return;
+            }
+
+            var html = '<div class="section-header">Мне нравится</div>';
+            html += '<div style="padding:4px 16px 12px;font-size:13px;color:#888;">' + fullTracks.length + ' треков</div>';
+            html += '<div class="track-list" id="likes-list"></div>';
+            document.getElementById('content').innerHTML = html;
+
+            YM.renderTrackList(fullTracks, 'likes-list');
+        });
+    });
+}
+
+YM.onTrackClick = function(idx) {
+    var list = document.getElementById('likes-list');
+    if (!list || !list._tracks) return;
+    var track = list._tracks[idx];
+    if (track) {
+        var allTracks = list._tracks;
+        YM.playTrack(track, '', allTracks);
+    }
+};
+
+window.onPlayerUpdate = function(state) {};
+</script>
+</body></html>
