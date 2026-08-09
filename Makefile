@@ -23,8 +23,8 @@ YandexMusic_FRAMEWORKS = UIKit \
         CoreGraphics \
         Foundation
 
-YandexMusic_CFLAGS = -fobjc-arc
-YandexMusic_OBJCFLAGS = -fobjc-arc
+YandexMusic_CFLAGS = -fobjc-arc -Wno-deprecated-declarations
+YandexMusic_OBJCFLAGS = -fobjc-arc -Wno-deprecated-declarations
 
 YandexMusic_RESOURCE_DIRS = resources
 

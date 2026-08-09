@@ -131,8 +131,8 @@ static NSString *const kRedirectURI = @"yandexmusic://auth/callback";
     for (NSString *pair in pairs) {
         NSArray *kv = [pair componentsSeparatedByString:@"="];
         if (kv.count == 2) {
-            NSString *key = [kv[0] stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
-            NSString *value = [kv[1] stringByReplacingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
+            NSString *key = [kv[0] stringByRemovingPercentEncoding];
+            NSString *value = [kv[1] stringByRemovingPercentEncoding];
             dict[key] = value;
         }
     }
