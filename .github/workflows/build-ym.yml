@@ -5,6 +5,10 @@ on:
     branches: [main, master]
   workflow_dispatch:
 
+permissions:
+  actions: write
+  contents: read
+
 jobs:
   build:
     runs-on: macos-14
