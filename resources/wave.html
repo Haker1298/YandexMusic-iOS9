@@ -17,8 +17,21 @@ var currentTracks = [];
 var currentTrackIndex = -1;
 
 window.onPageReady = function(token) {
+    if (window.__GUEST__) {
+        showGuestScreen();
+        return;
+    }
     loadDashboard();
 };
+
+function showGuestScreen() {
+    var el = document.getElementById('content');
+    el.innerHTML = '<div style="text-align:center;padding-top:60px;">' +
+        '<div style="font-size:48px;margin-bottom:16px;">🎵</div>' +
+        '<div style="color:#fff;font-size:20px;font-weight:bold;margin-bottom:8px;">Гостевой режим</div>' +
+        '<div style="color:#888;font-size:14px;padding:0 30px;line-height:1.5;">Войдите в аккаунт чтобы слушать персональные станции и сохранять музыку</div>' +
+        '</div>';
+}
 
 function loadDashboard() {
     var el = document.getElementById('content');

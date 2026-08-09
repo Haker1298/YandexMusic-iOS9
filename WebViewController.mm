@@ -151,6 +151,8 @@ static NSString *const kCoverBase = @"https://"; // prepend to cover URLs
     if (del.accessToken) {
         NSString *js = [NSString stringWithFormat:@"window.__YM_TOKEN__ = '%@'; if(window.onTokenReady) window.onTokenReady();", del.accessToken];
         [self.webView evaluateJavaScript:js completionHandler:nil];
+    } else {
+        [self.webView evaluateJavaScript:@"window.__GUEST__ = true; if(window.onTokenReady) window.onTokenReady();" completionHandler:nil];
     }
 }
 
@@ -183,7 +185,13 @@ static NSString *const kCoverBase = @"https://"; // prepend to cover URLs
 
     AppDelegate *del = (AppDelegate *)[[UIApplication sharedApplication] delegate];
     NSString *token = del.accessToken;
-    if (!token) return;
+    if (!token) {
+        NSString *js = [NSString stringWithFormat:@"window.__ymApiCallback('%@', '{\"error\":\"guest\",\"guestMode\":true}');", callbackId];
+        dispatch_async(dispatch_get_main_queue(), ^{
+            [self.webView evaluateJavaScript:js completionHandler:nil];
+        });
+        return;
+    }
 
     NSString *urlStr = [NSString stringWithFormat:@"%@%@", kApiBase, path];
     NSURL *url = [NSURL URLWithString:urlStr];

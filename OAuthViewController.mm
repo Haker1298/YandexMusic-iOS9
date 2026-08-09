@@ -6,9 +6,9 @@ static NSString *const kClientId = @"b399db89f01e4bd4965cef1f7973ee05";
 
 @implementation OAuthViewController {
     UIView *loginView;
-    UIView *webViewContainer;
     UIView *tokenInputView;
     WKWebView *authWebView;
+    UIView *webViewContainer;
 }
 
 - (void)viewDidLoad {
@@ -31,7 +31,7 @@ static NSString *const kClientId = @"b399db89f01e4bd4965cef1f7973ee05";
     UIImageView *logo = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"app_icon"]];
     if (logo.image) {
         CGFloat s = 90;
-        logo.frame = CGRectMake((cx - s) / 2, cy * 0.22, s, s);
+        logo.frame = CGRectMake((cx - s) / 2, cy * 0.18, s, s);
         logo.contentMode = UIViewContentModeScaleAspectFit;
         logo.layer.cornerRadius = 20;
         logo.layer.masksToBounds = YES;
@@ -39,23 +39,75 @@ static NSString *const kClientId = @"b399db89f01e4bd4965cef1f7973ee05";
     }
     
     // Title
-    UILabel *titleLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, cy * 0.22 + 110, cx, 30)];
+    UILabel *titleLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, cy * 0.18 + 110, cx, 30)];
     titleLabel.text = @"\u042F\u043D\u0434\u0435\u043A\u0441 \u041C\u0443\u0437\u044B\u043A\u0430";
     titleLabel.textAlignment = NSTextAlignmentCenter;
     titleLabel.textColor = [UIColor whiteColor];
     titleLabel.font = [UIFont boldSystemFontOfSize:22];
     [loginView addSubview:titleLabel];
     
-    // Subtitle
-    UILabel *subLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, cy * 0.22 + 148, cx - 40, 20)];
-    subLabel.text = @"\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0442\u043E\u043A\u0435\u043D \u0434\u043B\u044F \u0432\u0445\u043E\u0434\u0430";
-    subLabel.textAlignment = NSTextAlignmentCenter;
-    subLabel.textColor = [UIColor colorWithWhite:0.5 alpha:1.0];
-    subLabel.font = [UIFont systemFontOfSize:13];
-    [loginView addSubview:subLabel];
+    // Buttons at the bottom
+    CGFloat bottomY = cy - 140;
+    
+    // Button 1: Vhod (login)
+    UIButton *loginBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+    loginBtn.frame = CGRectMake(30, bottomY, cx - 60, 48);
+    loginBtn.backgroundColor = [UIColor colorWithRed:1.0 green:0.8 blue:0.0 alpha:1.0];
+    [loginBtn setTitle:@"\u0412\u043E\u0439\u0442\u0438" forState:UIControlStateNormal];
+    [loginBtn setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
+    loginBtn.titleLabel.font = [UIFont boldSystemFontOfSize:17];
+    loginBtn.layer.cornerRadius = 10;
+    loginBtn.clipsToBounds = YES;
+    [loginBtn addTarget:self action:@selector(showTokenInput) forControlEvents:UIControlEventTouchUpInside];
+    [loginView addSubview:loginBtn];
+    
+    // Button 2: Guest mode
+    UIButton *guestBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+    guestBtn.frame = CGRectMake(30, bottomY + 62, cx - 60, 48);
+    guestBtn.backgroundColor = [UIColor colorWithWhite:0.18 alpha:1.0];
+    [guestBtn setTitle:@"\u0413\u043E\u0441\u0442\u0435\u0432\u043E\u0439 \u0440\u0435\u0436\u0438\u043C" forState:UIControlStateNormal];
+    [guestBtn setTitleColor:[UIColor colorWithWhite:0.7 alpha:1.0] forState:UIControlStateNormal];
+    guestBtn.titleLabel.font = [UIFont systemFontOfSize:16];
+    guestBtn.layer.cornerRadius = 10;
+    guestBtn.layer.borderColor = [UIColor colorWithWhite:0.3 alpha:1.0].CGColor;
+    guestBtn.layer.borderWidth = 1;
+    guestBtn.clipsToBounds = YES;
+    [guestBtn addTarget:self action:@selector(enterGuestMode) forControlEvents:UIControlEventTouchUpInside];
+    [loginView addSubview:guestBtn];
+    
+    [self.view addSubview:loginView];
+}
+
+#pragma mark - Token Input Screen
+
+- (void)showTokenInput {
+    [loginView removeFromSuperview];
+    
+    tokenInputView = [[UIView alloc] initWithFrame:self.view.bounds];
+    tokenInputView.backgroundColor = [UIColor colorWithRed:0.06 green:0.06 blue:0.08 alpha:1.0];
+    tokenInputView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    
+    CGFloat cx = self.view.bounds.size.width;
+    
+    // Back button
+    UIButton *backBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+    backBtn.frame = CGRectMake(10, 20, 70, 36);
+    [backBtn setTitle:@"< \u041D\u0430\u0437\u0430\u0434" forState:UIControlStateNormal];
+    [backBtn setTitleColor:[UIColor colorWithRed:1.0 green:0.8 blue:0.0 alpha:1.0] forState:UIControlStateNormal];
+    backBtn.titleLabel.font = [UIFont systemFontOfSize:15];
+    [backBtn addTarget:self action:@selector(backToLoginFromToken) forControlEvents:UIControlEventTouchUpInside];
+    [tokenInputView addSubview:backBtn];
+    
+    // Title
+    UILabel *titleLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 80, cx, 28)];
+    titleLabel.text = @"\u0412\u0432\u043E\u0434 \u0442\u043E\u043A\u0435\u043D\u0430";
+    titleLabel.textAlignment = NSTextAlignmentCenter;
+    titleLabel.textColor = [UIColor whiteColor];
+    titleLabel.font = [UIFont boldSystemFontOfSize:20];
+    [tokenInputView addSubview:titleLabel];
     
     // Token text field
-    UITextField *tokenField = [[UITextField alloc] initWithFrame:CGRectMake(30, cy * 0.48, cx - 60, 40)];
+    UITextField *tokenField = [[UITextField alloc] initWithFrame:CGRectMake(30, 130, cx - 60, 40)];
     tokenField.placeholder = @"AQAAAAA...";
     tokenField.textColor = [UIColor whiteColor];
     tokenField.backgroundColor = [UIColor colorWithWhite:0.13 alpha:1.0];
@@ -67,47 +119,83 @@ static NSString *const kClientId = @"b399db89f01e4bd4965cef1f7973ee05";
     tokenField.autocapitalizationType = UITextAutocapitalizationTypeNone;
     tokenField.autocorrectionType = UITextAutocorrectionTypeNo;
     tokenField.tag = 999;
-    [loginView addSubview:tokenField];
+    [tokenInputView addSubview:tokenField];
     
     // Submit button
     UIButton *submitBtn = [UIButton buttonWithType:UIButtonTypeSystem];
-    submitBtn.frame = CGRectMake(30, cy * 0.48 + 52, cx - 60, 44);
+    submitBtn.frame = CGRectMake(30, 185, cx - 60, 44);
     submitBtn.backgroundColor = [UIColor colorWithRed:1.0 green:0.8 blue:0.0 alpha:1.0];
     [submitBtn setTitle:@"\u0412\u043E\u0439\u0442\u0438" forState:UIControlStateNormal];
     [submitBtn setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
     submitBtn.titleLabel.font = [UIFont boldSystemFontOfSize:16];
     submitBtn.layer.cornerRadius = 10;
     submitBtn.clipsToBounds = YES;
-    [submitBtn addTarget:self action:@selector(submitTokenFromMain) forControlEvents:UIControlEventTouchUpInside];
-    [loginView addSubview:submitBtn];
+    [submitBtn addTarget:self action:@selector(submitManualToken) forControlEvents:UIControlEventTouchUpInside];
+    [tokenInputView addSubview:submitBtn];
     
-    // Help link
-    UIButton *helpBtn = [UIButton buttonWithType:UIButtonTypeSystem];
-    helpBtn.frame = CGRectMake(30, cy * 0.48 + 112, cx - 60, 36);
-    helpBtn.backgroundColor = [UIColor colorWithWhite:0.15 alpha:1.0];
-    helpBtn.layer.cornerRadius = 8;
-    helpBtn.layer.borderColor = [UIColor colorWithWhite:0.25 alpha:1.0].CGColor;
-    helpBtn.layer.borderWidth = 1;
-    [helpBtn setTitle:@"\u041F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0442\u043E\u043A\u0435\u043D" forState:UIControlStateNormal];
-    [helpBtn setTitleColor:[UIColor colorWithRed:1.0 green:0.8 blue:0.0 alpha:1.0] forState:UIControlStateNormal];
-    helpBtn.titleLabel.font = [UIFont systemFontOfSize:13];
-    [helpBtn addTarget:self action:@selector(openTokenPage) forControlEvents:UIControlEventTouchUpInside];
-    [loginView addSubview:helpBtn];
+    // Get token button
+    UIButton *linkBtn = [UIButton buttonWithType:UIButtonTypeSystem];
+    linkBtn.frame = CGRectMake(30, 245, cx - 60, 36);
+    linkBtn.backgroundColor = [UIColor colorWithWhite:0.15 alpha:1.0];
+    linkBtn.layer.cornerRadius = 8;
+    linkBtn.layer.borderColor = [UIColor colorWithWhite:0.25 alpha:1.0].CGColor;
+    linkBtn.layer.borderWidth = 1;
+    [linkBtn setTitle:@"\u041F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0442\u043E\u043A\u0435\u043D" forState:UIControlStateNormal];
+    [linkBtn setTitleColor:[UIColor colorWithRed:1.0 green:0.8 blue:0.0 alpha:1.0] forState:UIControlStateNormal];
+    linkBtn.titleLabel.font = [UIFont systemFontOfSize:13];
+    [linkBtn addTarget:self action:@selector(openTokenPage) forControlEvents:UIControlEventTouchUpInside];
+    [tokenInputView addSubview:linkBtn];
     
-    [self.view addSubview:loginView];
+    // Help text
+    UILabel *helpLabel = [[UILabel alloc] initWithFrame:CGRectMake(30, 300, cx - 60, 80)];
+    helpLabel.text = @"\u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u0441\u0441\u044B\u043B\u043A\u0443 \u043D\u0438\u0436\u0435 \u043D\u0430 \u0434\u0440\u0443\u0433\u043E\u043C \u0443\u0441\u0442\u0440\u043E\u0439\u0441\u0442\u0432\u0435, \u0432\u043E\u0439\u0434\u0438\u0442\u0435 \u0432 \u042F\u043D\u0434\u0435\u043A\u0441 \u0438 \u0441\u043A\u043E\u043F\u0438\u0440\u0443\u0439\u0442\u0435 access_token \u0438\u0437 \u0430\u0434\u0440\u0435\u0441\u0430";
+    helpLabel.numberOfLines = 0;
+    helpLabel.textAlignment = NSTextAlignmentCenter;
+    helpLabel.textColor = [UIColor colorWithWhite:0.4 alpha:1.0];
+    helpLabel.font = [UIFont systemFontOfSize:12];
+    [tokenInputView addSubview:helpLabel];
+    
+    [self.view addSubview:tokenInputView];
+}
+
+- (void)submitManualToken {
+    UITextField *tf = (UITextField *)[tokenInputView viewWithTag:999];
+    NSString *token = [tf.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
+    
+    if (token.length > 5) {
+        [self tokenReceived:token];
+    } else {
+        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"\u041E\u0448\u0438\u0431\u043A\u0430"
+                                                       message:@"\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043A\u043E\u0440\u0440\u0435\u043A\u0442\u043D\u044B\u0439 OAuth \u0442\u043E\u043A\u0435\u043D"
+                                                      delegate:nil
+                                             cancelButtonTitle:@"OK"
+                                             otherButtonTitles:nil];
+        [alert show];
+    }
+}
+
+- (void)openTokenPage {
+    NSString *url = @"https://oauth.yandex.ru/authorize?response_type=token&client_id=b399db89f01e4bd4965cef1f7973ee05";
+    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:url]];
+}
+
+#pragma mark - Guest Mode
+
+- (void)enterGuestMode {
+    AppDelegate *del = (AppDelegate *)[[UIApplication sharedApplication] delegate];
+    del.accessToken = nil;
+    [del showMainApp];
 }
 
 #pragma mark - WebView Login
 
 - (void)showWebViewLogin {
-    // Remove login view
     [loginView removeFromSuperview];
     
     webViewContainer = [[UIView alloc] initWithFrame:self.view.bounds];
     webViewContainer.backgroundColor = [UIColor colorWithRed:0.06 green:0.06 blue:0.08 alpha:1.0];
     webViewContainer.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     
-    // Back button
     UIButton *backBtn = [UIButton buttonWithType:UIButtonTypeSystem];
     backBtn.frame = CGRectMake(10, 20, 70, 36);
     [backBtn setTitle:@"< \u041D\u0430\u0437\u0430\u0434" forState:UIControlStateNormal];
@@ -116,17 +204,14 @@ static NSString *const kClientId = @"b399db89f01e4bd4965cef1f7973ee05";
     [backBtn addTarget:self action:@selector(backToLogin) forControlEvents:UIControlEventTouchUpInside];
     [webViewContainer addSubview:backBtn];
     
-    // Activity indicator
     UIActivityIndicatorView *spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhite];
     spinner.center = CGPointMake(self.view.bounds.size.width / 2, 70);
     spinner.tag = 42;
     [webViewContainer addSubview:spinner];
     [spinner startAnimating];
     
-    // WebView
     CGFloat webY = 56;
-    CGFloat webH = self.view.bounds.size.height - webY;
-    authWebView = [[WKWebView alloc] initWithFrame:CGRectMake(0, webY, self.view.bounds.size.width, webH)];
+    authWebView = [[WKWebView alloc] initWithFrame:CGRectMake(0, webY, self.view.bounds.size.width, self.view.bounds.size.height - webY)];
     authWebView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     authWebView.navigationDelegate = self;
     authWebView.backgroundColor = [UIColor whiteColor];
@@ -134,7 +219,6 @@ static NSString *const kClientId = @"b399db89f01e4bd4965cef1f7973ee05";
     
     [self.view addSubview:webViewContainer];
     
-    // Load OAuth page — redirect to verification_code page so token appears in URL
     NSString *authURL = [NSString stringWithFormat:
         @"https://oauth.yandex.ru/authorize?response_type=token&client_id=%@&redirect_uri=https://oauth.yandex.ru/verification_code&display=mobile",
         kClientId
@@ -147,20 +231,6 @@ static NSString *const kClientId = @"b399db89f01e4bd4965cef1f7973ee05";
     NSURL *url = navigationAction.request.URL;
     NSString *absString = [url absoluteString];
     
-    // Intercept verification_code page with token in URL fragment
-    if ([absString containsString:@"oauth.yandex.ru/verification_code#"]) {
-        NSString *fragment = [url fragment];
-        if (fragment) {
-            NSString *token = [self extractToken:fragment];
-            if (token) {
-                [self tokenReceived:token];
-                decisionHandler(WKNavigationActionPolicyCancel);
-                return;
-            }
-        }
-    }
-    
-    // Also catch any URL with access_token in fragment
     if ([absString containsString:@"access_token="]) {
         NSString *fragment = [url fragment];
         if (fragment) {
@@ -190,132 +260,6 @@ static NSString *const kClientId = @"b399db89f01e4bd4965cef1f7973ee05";
         }
     }
     return nil;
-}
-
-#pragma mark - Token Input Screen
-
-- (void)showTokenInput {
-    // Remove login view
-    [loginView removeFromSuperview];
-    
-    tokenInputView = [[UIView alloc] initWithFrame:self.view.bounds];
-    tokenInputView.backgroundColor = [UIColor colorWithRed:0.06 green:0.06 blue:0.08 alpha:1.0];
-    tokenInputView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
-    
-    CGFloat cx = self.view.bounds.size.width;
-    
-    // Back button
-    UIButton *backBtn = [UIButton buttonWithType:UIButtonTypeSystem];
-    backBtn.frame = CGRectMake(10, 20, 70, 36);
-    [backBtn setTitle:@"< \u041D\u0430\u0437\u0430\u0434" forState:UIControlStateNormal];
-    [backBtn setTitleColor:[UIColor colorWithRed:1.0 green:0.8 blue:0.0 alpha:1.0] forState:UIControlStateNormal];
-    backBtn.titleLabel.font = [UIFont systemFontOfSize:15];
-    [backBtn addTarget:self action:@selector(backToLoginFromToken) forControlEvents:UIControlEventTouchUpInside];
-    [tokenInputView addSubview:backBtn];
-    
-    // Title
-    UILabel *titleLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 80, cx, 28)];
-    titleLabel.text = @"\u0412\u0432\u043E\u0434 \u0442\u043E\u043A\u0435\u043D\u0430";
-    titleLabel.textAlignment = NSTextAlignmentCenter;
-    titleLabel.textColor = [UIColor whiteColor];
-    titleLabel.font = [UIFont boldSystemFontOfSize:20];
-    [tokenInputView addSubview:titleLabel];
-    
-    // Description
-    UILabel *descLabel = [[UILabel alloc] initWithFrame:CGRectMake(30, 118, cx - 60, 50)];
-    descLabel.text = @"\u0412\u0441\u0442\u0430\u0432\u044C\u0442\u0435 OAuth \u0442\u043E\u043A\u0435\u043D \u043E\u0442 \u042F\u043D\u0434\u0435\u043A\u0441\u0430. \u0415\u0441\u043B\u0438 \u0443 \u0432\u0430\u0441 \u0435\u0433\u043E \u043D\u0435\u0442 \u2014 \u043D\u0430\u0436\u043C\u0438\u0442\u0435 \u00AB\u0412\u043E\u0439\u0442\u0438 \u0447\u0435\u0440\u0435\u0437 Yandex ID\u00BB";
-    descLabel.numberOfLines = 0;
-    descLabel.textAlignment = NSTextAlignmentCenter;
-    descLabel.textColor = [UIColor colorWithWhite:0.55 alpha:1.0];
-    descLabel.font = [UIFont systemFontOfSize:13];
-    [tokenInputView addSubview:descLabel];
-    
-    // Token text field
-    UITextField *tokenField = [[UITextField alloc] initWithFrame:CGRectMake(30, 185, cx - 60, 40)];
-    tokenField.placeholder = @"AQAAAAA...";
-    tokenField.textColor = [UIColor whiteColor];
-    tokenField.backgroundColor = [UIColor colorWithWhite:0.13 alpha:1.0];
-    tokenField.layer.cornerRadius = 8;
-    tokenField.leftView = [[UIView alloc] initWithFrame:CGRectMake(0, 0, 12, 40)];
-    tokenField.leftViewMode = UITextFieldViewModeAlways;
-    tokenField.font = [UIFont systemFontOfSize:14];
-    tokenField.returnKeyType = UIReturnKeyDone;
-    tokenField.autocapitalizationType = UITextAutocapitalizationTypeNone;
-    tokenField.autocorrectionType = UITextAutocorrectionTypeNo;
-    tokenField.tag = 999;
-    [tokenInputView addSubview:tokenField];
-    
-    // Submit button
-    UIButton *submitBtn = [UIButton buttonWithType:UIButtonTypeSystem];
-    submitBtn.frame = CGRectMake(30, 240, cx - 60, 44);
-    submitBtn.backgroundColor = [UIColor colorWithRed:1.0 green:0.8 blue:0.0 alpha:1.0];
-    [submitBtn setTitle:@"\u0412\u043E\u0439\u0442\u0438" forState:UIControlStateNormal];
-    [submitBtn setTitleColor:[UIColor blackColor] forState:UIControlStateNormal];
-    submitBtn.titleLabel.font = [UIFont boldSystemFontOfSize:16];
-    submitBtn.layer.cornerRadius = 10;
-    submitBtn.clipsToBounds = YES;
-    [submitBtn addTarget:self action:@selector(submitManualToken) forControlEvents:UIControlEventTouchUpInside];
-    [tokenInputView addSubview:submitBtn];
-    
-    // Help text
-    UILabel *helpLabel = [[UILabel alloc] initWithFrame:CGRectMake(30, 310, cx - 60, 100)];
-    helpLabel.text = @"\u041A\u0430\u043A \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0442\u043E\u043A\u0435\u043D:\n\u041E\u0442\u043A\u0440\u043E\u0439\u0442\u0435 \u0441\u0441\u044B\u043B\u043A\u0443 \u043D\u0438\u0436\u0435 \u0432 \u043B\u044E\u0431\u043E\u043C \u0431\u0440\u0430\u0443\u0437\u0435\u0440\u0435, \u0432\u043E\u0439\u0434\u0438\u0442\u0435 \u0432 \u042F\u043D\u0434\u0435\u043A\u0441, \u0438 \u0441\u043A\u043E\u043F\u0438\u0440\u0443\u0439\u0442\u0435 access_token \u0438\u0437 \u0430\u0434\u0440\u0435\u0441\u0430";
-    helpLabel.numberOfLines = 0;
-    helpLabel.textAlignment = NSTextAlignmentCenter;
-    helpLabel.textColor = [UIColor colorWithWhite:0.4 alpha:1.0];
-    helpLabel.font = [UIFont systemFontOfSize:12];
-    [tokenInputView addSubview:helpLabel];
-    
-    // Link button to get token
-    UIButton *linkBtn = [UIButton buttonWithType:UIButtonTypeSystem];
-    linkBtn.frame = CGRectMake(30, 415, cx - 60, 36);
-    linkBtn.backgroundColor = [UIColor colorWithWhite:0.15 alpha:1.0];
-    linkBtn.layer.cornerRadius = 8;
-    linkBtn.layer.borderColor = [UIColor colorWithWhite:0.25 alpha:1.0].CGColor;
-    linkBtn.layer.borderWidth = 1;
-    [linkBtn setTitle:@"\u041E\u0442\u043A\u0440\u044B\u0442\u044C \u0441\u0442\u0440\u0430\u043D\u0438\u0446\u0443 \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u0438\u044F \u0442\u043E\u043A\u0435\u043D\u0430" forState:UIControlStateNormal];
-    [linkBtn setTitleColor:[UIColor colorWithRed:1.0 green:0.8 blue:0.0 alpha:1.0] forState:UIControlStateNormal];
-    linkBtn.titleLabel.font = [UIFont systemFontOfSize:13];
-    [linkBtn addTarget:self action:@selector(openTokenPage) forControlEvents:UIControlEventTouchUpInside];
-    [tokenInputView addSubview:linkBtn];
-    
-    [self.view addSubview:tokenInputView];
-}
-
-- (void)submitTokenFromMain {
-    UITextField *tf = (UITextField *)[loginView viewWithTag:999];
-    NSString *token = [tf.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-    if (token.length > 5) {
-        [self tokenReceived:token];
-    } else {
-        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"\u041E\u0448\u0438\u0431\u043A\u0430"
-                                                       message:@"\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043A\u043E\u0440\u0440\u0435\u043A\u0442\u043D\u044B\u0439 OAuth \u0442\u043E\u043A\u0435\u043D"
-                                                      delegate:nil
-                                             cancelButtonTitle:@"OK"
-                                             otherButtonTitles:nil];
-        [alert show];
-    }
-}
-
-- (void)submitManualToken {
-    UITextField *tf = (UITextField *)[tokenInputView viewWithTag:999];
-    NSString *token = [tf.text stringByTrimmingCharactersInSet:[NSCharacterSet whitespaceAndNewlineCharacterSet]];
-    
-    if (token.length > 5) {
-        [self tokenReceived:token];
-    } else {
-        UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"\u041E\u0448\u0438\u0431\u043A\u0430"
-                                                       message:@"\u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u043A\u043E\u0440\u0440\u0435\u043A\u0442\u043D\u044B\u0439 OAuth \u0442\u043E\u043A\u0435\u043D"
-                                                      delegate:nil
-                                             cancelButtonTitle:@"OK"
-                                             otherButtonTitles:nil];
-        [alert show];
-    }
-}
-
-- (void)openTokenPage {
-    NSString *url = @"https://oauth.yandex.ru/authorize?response_type=token&client_id=b399db89f01e4bd4965cef1f7973ee05";
-    [[UIApplication sharedApplication] openURL:[NSURL URLWithString:url]];
 }
 
 #pragma mark - Back / Token Received

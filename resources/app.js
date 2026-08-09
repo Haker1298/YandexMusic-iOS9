@@ -21,6 +21,10 @@ var YM = (function() {
 
     // Called by native when token is injected
     window.onTokenReady = function() {
+        if (window.__GUEST__) {
+            _onReady();
+            return;
+        }
         _token = window.__YM_TOKEN__;
         _onReady();
     };
