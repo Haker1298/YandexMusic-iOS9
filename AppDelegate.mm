@@ -19,6 +19,60 @@ static UIImage *halfSizeImage(NSString *name) {
     return result;
 }
 
+static UIImage *concertIcon(CGFloat size, BOOL active) {
+    UIGraphicsBeginImageContextWithOptions(CGSizeMake(size, size), NO, 0);
+    UIColor *color = active ? [UIColor colorWithRed:1.0 green:0.8 blue:0.0 alpha:1.0] : [UIColor colorWithWhite:0.6 alpha:1.0];
+    [color setStroke];
+    [color setFill];
+    CGContextRef ctx = UIGraphicsGetCurrentContext();
+    // Microphone body (rounded rect via UIBezierPath)
+    CGFloat cx = size / 2, cy = size * 0.38;
+    CGFloat rw = size * 0.16, rh = size * 0.28;
+    UIBezierPath *micBody = [UIBezierPath bezierPathWithRoundedRect:CGRectMake(cx - rw, cy - rh, rw * 2, rh * 2) cornerRadius:rw];
+    [micBody fill];
+    // Mic stand arc
+    CGFloat standY = cy + rh;
+    CGContextSetLineWidth(ctx, 1.5);
+    CGContextBeginPath(ctx);
+    CGContextMoveToPoint(ctx, cx - size * 0.25, standY + size * 0.12);
+    CGContextAddQuadCurveToPoint(ctx, cx - size * 0.25, standY + size * 0.25, cx, standY + size * 0.25);
+    CGContextAddQuadCurveToPoint(ctx, cx + size * 0.25, standY + size * 0.25, cx + size * 0.25, standY + size * 0.12);
+    CGContextStrokePath(ctx);
+    // Stand line
+    CGContextBeginPath(ctx);
+    CGContextMoveToPoint(ctx, cx, standY + size * 0.25);
+    CGContextAddLineToPoint(ctx, cx, size * 0.88);
+    CGContextStrokePath(ctx);
+    // Base
+    CGContextBeginPath(ctx);
+    CGContextMoveToPoint(ctx, cx - size * 0.2, size * 0.88);
+    CGContextAddLineToPoint(ctx, cx + size * 0.2, size * 0.88);
+    CGContextStrokePath(ctx);
+    UIImage *result = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    return result;
+}
+
+static UIImage *collectionIcon(CGFloat size, BOOL active) {
+    UIGraphicsBeginImageContextWithOptions(CGSizeMake(size, size), NO, 0);
+    UIColor *color = active ? [UIColor colorWithRed:1.0 green:0.8 blue:0.0 alpha:1.0] : [UIColor colorWithWhite:0.6 alpha:1.0];
+    [color setFill];
+    CGContextRef ctx = UIGraphicsGetCurrentContext();
+    CGFloat m = size * 0.18;
+    CGFloat cw = (size - m * 3) / 2;
+    CGFloat ch = cw * 1.3;
+    CGFloat baseY = size * 0.15;
+    // Stack of 3 items
+    for (int i = 0; i < 3; i++) {
+        CGFloat x = m + i * (cw * 0.15);
+        CGFloat y = baseY + i * (ch * 0.2);
+        CGContextFillRect(ctx, CGRectMake(x, y, cw, ch));
+    }
+    UIImage *result = UIGraphicsGetImageFromCurrentImageContext();
+    UIGraphicsEndImageContext();
+    return result;
+}
+
 @implementation AppDelegate
 
 - (BOOL)application:(UIApplication *)application didFinishLaunchingWithOptions:(NSDictionary *)launchOptions {
@@ -74,16 +128,16 @@ static UIImage *halfSizeImage(NSString *name) {
     // Tab 3: Концерты
     WebViewController *concertsVC = [[WebViewController alloc] initWithPage:@"concerts" title:@"Концерты"];
     UINavigationController *concertsNav = [[UINavigationController alloc] initWithRootViewController:concertsVC];
-    concertsNav.tabBarItem.image = halfSizeImage(@"tab_likes");
-    concertsNav.tabBarItem.selectedImage = halfSizeImage(@"tab_likes_active");
+    concertsNav.tabBarItem.image = concertIcon(25, NO);
+    concertsNav.tabBarItem.selectedImage = concertIcon(25, YES);
     concertsNav.tabBarItem.title = @"Концерты";
     concertsNav.navigationBarHidden = YES;
 
     // Tab 4: Коллекция
     WebViewController *collectionVC = [[WebViewController alloc] initWithPage:@"collection" title:@"Коллекция"];
     UINavigationController *collectionNav = [[UINavigationController alloc] initWithRootViewController:collectionVC];
-    collectionNav.tabBarItem.image = halfSizeImage(@"tab_podcast");
-    collectionNav.tabBarItem.selectedImage = halfSizeImage(@"tab_podcast_active");
+    collectionNav.tabBarItem.image = collectionIcon(25, NO);
+    collectionNav.tabBarItem.selectedImage = collectionIcon(25, YES);
     collectionNav.tabBarItem.title = @"Коллекция";
     collectionNav.navigationBarHidden = YES;
 

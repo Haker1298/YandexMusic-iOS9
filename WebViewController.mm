@@ -24,8 +24,10 @@ static NSString *const kApiBase = @"https://api.music.yandex.net";
     [self setupTopBar:showLogo];
 
     CGRect webFrame = self.view.bounds;
-    webFrame.origin.y = 32;
-    webFrame.size.height -= 32;
+    CGFloat topOffset = 32;
+    if (showLogo) topOffset = 58; // 32 topBar + 4 gap + ~22 logo
+    webFrame.origin.y = topOffset;
+    webFrame.size.height -= topOffset;
 
     WKWebViewConfiguration *config = [[WKWebViewConfiguration alloc] init];
     config.userContentController = [[WKUserContentController alloc] init];
@@ -81,26 +83,7 @@ static NSString *const kApiBase = @"https://api.music.yandex.net";
     [accountBtn addTarget:self action:@selector(accountTapped) forControlEvents:UIControlEventTouchUpInside];
     [topBar addSubview:accountBtn];
 
-    // Logo (center) - only on wave page
-    if (showLogo) {
-        UIImageView *logoView = [[UIImageView alloc] initWithImage:[UIImage imageNamed:@"yandex_music_text_logo_white"]];
-        if (logoView.image) {
-            CGFloat logoW = logoView.image.size.width * 0.22;
-            CGFloat logoH = logoView.image.size.height * 0.22;
-            logoView.frame = CGRectMake((topBar.bounds.size.width - logoW) / 2, (32 - logoH) / 2, logoW, logoH);
-            logoView.contentMode = UIViewContentModeScaleAspectFit;
-            [topBar addSubview:logoView];
-        } else {
-            UILabel *logoLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 7, topBar.bounds.size.width, 18)];
-            logoLabel.text = @"\u042F\u043D\u0434\u0435\u043A\u0441 \u041C\u0443\u0437\u044B\u043A\u0430";
-            logoLabel.textAlignment = NSTextAlignmentCenter;
-            logoLabel.textColor = [UIColor whiteColor];
-            logoLabel.font = [UIFont boldSystemFontOfSize:12];
-            [topBar addSubview:logoLabel];
-        }
-    }
-
-    // Search button (right)
+    // Search button (right) — always present
     UIButton *searchBtn = [UIButton buttonWithType:UIButtonTypeCustom];
     UIImage *searchImg = [UIImage imageNamed:@"nav_search"];
     if (searchImg) {
@@ -115,6 +98,29 @@ static NSString *const kApiBase = @"https://api.music.yandex.net";
     }
     [searchBtn addTarget:self action:@selector(searchTapped) forControlEvents:UIControlEventTouchUpInside];
     [topBar addSubview:searchBtn];
+
+    // Logo BELOW the top bar — only on wave page
+    if (showLogo) {
+        UIImage *logoImg = [UIImage imageNamed:@"yandex_music_text_logo_white"];
+        if (logoImg) {
+            CGFloat scale = 0.264; // 0.22 * 1.2 = 26.4%
+            CGFloat logoW = logoImg.size.width * scale;
+            CGFloat logoH = logoImg.size.height * scale;
+            CGFloat logoY = 36; // 32px topBar + 4px gap
+            UIImageView *logoView = [[UIImageView alloc] initWithFrame:CGRectMake((self.view.bounds.size.width - logoW) / 2, logoY, logoW, logoH)];
+            logoView.contentMode = UIViewContentModeScaleAspectFit;
+            logoView.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin;
+            [self.view addSubview:logoView];
+        } else {
+            UILabel *logoLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 36, self.view.bounds.size.width, 18)];
+            logoLabel.text = @"\u042F\u043D\u0434\u0435\u043A\u0441 \u041C\u0443\u0437\u044B\u043A\u0430";
+            logoLabel.textAlignment = NSTextAlignmentCenter;
+            logoLabel.textColor = [UIColor whiteColor];
+            logoLabel.font = [UIFont boldSystemFontOfSize:12];
+            logoLabel.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin;
+            [self.view addSubview:logoLabel];
+        }
+    }
 }
 
 - (void)accountTapped {
@@ -225,10 +231,10 @@ static NSString *const kApiBase = @"https://api.music.yandex.net";
             if (!resultStr) resultStr = @"{}";
         }
 
-        NSString *escaped = [resultStr stringByReplacingOccurrencesOfString:@"\\'" withString:@"\\\\'"];
-        escaped = [escaped stringByReplacingOccurrencesOfString:@"\n" withString:@"\\n"];
-        escaped = [escaped stringByReplacingOccurrencesOfString:@"\r" withString:@""];
-        NSString *js = [NSString stringWithFormat:@"window.__ymApiCallback('%@', '%@');", callbackId, escaped];
+        // Base64 encode to avoid JS string escaping issues
+        NSData *resultData = [resultStr dataUsingEncoding:NSUTF8StringEncoding];
+        NSString *b64 = [resultData base64EncodedStringWithOptions:0];
+        NSString *js = [NSString stringWithFormat:@"window.__ymApiCallback('%@', window.atob('%@'));", callbackId, b64];
 
         dispatch_async(dispatch_get_main_queue(), ^{
             [self.webView evaluateJavaScript:js completionHandler:nil];
