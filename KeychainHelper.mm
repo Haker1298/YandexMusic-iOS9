@@ -2,7 +2,8 @@
 #import <Security/Security.h>
 
 static NSString *const kKeychainService = @"com.haker1928.yandexmusic";
-static NSString *const kKeychainTokenKey = @"oauth_token";
+// v2 — old tokens from custom client_id have no music permissions
+static NSString *const kKeychainTokenKey = @"oauth_token_v2";
 
 @implementation KeychainHelper
 
