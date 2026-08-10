@@ -5,7 +5,7 @@
 #import "KeychainHelper.h"
 #import "MiniPlayerView.h"
 
-static NSString *const kClientId = @"b399db89f01e4bd4965cef1f7973ee05";
+static NSString *const kClientId = @"b399db89f01e4bd4965ce1f79735ee05";
 static NSString *const kRedirectURI = @"yandexmusic://auth/callback";
 
 static UIImage *halfSizeImage(NSString *name) {
