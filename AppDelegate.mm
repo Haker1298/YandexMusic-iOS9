@@ -128,8 +128,18 @@ static UIImage *collectionIcon(CGFloat size, BOOL active) {
     // Tab 3: Концерты
     WebViewController *concertsVC = [[WebViewController alloc] initWithPage:@"concerts" title:@"Концерты"];
     UINavigationController *concertsNav = [[UINavigationController alloc] initWithRootViewController:concertsVC];
-    concertsNav.tabBarItem.image = concertIcon(25, NO);
-    concertsNav.tabBarItem.selectedImage = concertIcon(25, YES);
+    UIImage *concertImg = halfSizeImage(@"tab_concert");
+    UIImage *concertImgActive = halfSizeImage(@"tab_concert_active");
+    if (concertImg) {
+        concertsNav.tabBarItem.image = concertImg;
+    } else {
+        concertsNav.tabBarItem.image = concertIcon(25, NO);
+    }
+    if (concertImgActive) {
+        concertsNav.tabBarItem.selectedImage = concertImgActive;
+    } else {
+        concertsNav.tabBarItem.selectedImage = concertIcon(25, YES);
+    }
     concertsNav.tabBarItem.title = @"Концерты";
     concertsNav.navigationBarHidden = YES;
 

@@ -224,11 +224,25 @@ static NSString *const kApiBase = @"https://api.music.yandex.net";
 
     NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
         NSString *resultStr = @"{}";
+        NSInteger statusCode = 0;
         if (error) {
-            resultStr = [NSString stringWithFormat:@"{\"error\":\"%@\"}", error.localizedDescription];
+            // Return structured error with status code hint
+            resultStr = [NSString stringWithFormat:@"{\"error\":{\"message\":\"%@\",\"code\":-1}}", error.localizedDescription];
         } else if (data) {
+            NSHTTPURLResponse *httpResp = (NSHTTPURLResponse *)response;
+            statusCode = httpResp.statusCode;
             resultStr = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
             if (!resultStr) resultStr = @"{}";
+            
+            // Wrap HTTP error status into JSON error object
+            if (statusCode >= 400) {
+                // Try to parse original response and keep its structure
+                // but ensure there's a clear error message
+                if (![resultStr containsString:@"\"error\""]) {
+                    NSString *statusMsg = [NSHTTPURLResponse localizedStringForStatusCode:statusCode];
+                    resultStr = [NSString stringWithFormat:@"{\"error\":{\"message\":\"%@ (HTTP %ld)\",\"code\":%ld}}", statusMsg, (long)statusCode, (long)statusCode];
+                }
+            }
         }
 
         // Base64 encode to avoid JS string escaping issues

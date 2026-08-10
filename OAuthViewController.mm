@@ -10,6 +10,8 @@ static NSString *const kRedirectURI = @"yandexmusic://auth/callback";
     UIView *tokenInputView;
     WKWebView *authWebView;
     UIView *webViewContainer;
+    UILabel *errorLabel;
+    UIButton *retryBtn;
 }
 
 - (void)viewDidLoad {
@@ -192,47 +194,65 @@ static NSString *const kRedirectURI = @"yandexmusic://auth/callback";
     webViewContainer.backgroundColor = [UIColor colorWithRed:0.06 green:0.06 blue:0.08 alpha:1.0];
     webViewContainer.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     
+    // Back button overlay on top of webview
     UIButton *backBtn = [UIButton buttonWithType:UIButtonTypeSystem];
-    backBtn.frame = CGRectMake(10, 20, 70, 36);
+    backBtn.frame = CGRectMake(10, 24, 70, 36);
+    backBtn.backgroundColor = [UIColor colorWithWhite:0.0 alpha:0.5];
     [backBtn setTitle:@"< \u041D\u0430\u0437\u0430\u0434" forState:UIControlStateNormal];
     [backBtn setTitleColor:[UIColor colorWithRed:1.0 green:0.8 blue:0.0 alpha:1.0] forState:UIControlStateNormal];
     backBtn.titleLabel.font = [UIFont systemFontOfSize:15];
+    backBtn.layer.cornerRadius = 8;
     [backBtn addTarget:self action:@selector(backToLogin) forControlEvents:UIControlEventTouchUpInside];
+    backBtn.tag = 50;
     [webViewContainer addSubview:backBtn];
     
-    UILabel *loadingLabel = [[UILabel alloc] initWithFrame:CGRectMake(0, 55, self.view.bounds.size.width, 20)];
-    loadingLabel.text = @"\u0417\u0430\u0433\u0440\u0443\u0437\u043A\u0430 \u042F\u043D\u0434\u0435\u043A\u0441 ID...";
-    loadingLabel.textAlignment = NSTextAlignmentCenter;
-    loadingLabel.textColor = [UIColor colorWithWhite:0.5 alpha:1.0];
-    loadingLabel.font = [UIFont systemFontOfSize:13];
-    loadingLabel.tag = 43;
-    [webViewContainer addSubview:loadingLabel];
+    // Error label (hidden by default)
+    errorLabel = [[UILabel alloc] initWithFrame:CGRectMake(20, 70, self.view.bounds.size.width - 40, 0)];
+    errorLabel.textColor = [UIColor redColor];
+    errorLabel.font = [UIFont systemFontOfSize:13];
+    errorLabel.numberOfLines = 0;
+    errorLabel.textAlignment = NSTextAlignmentCenter;
+    errorLabel.hidden = YES;
+    errorLabel.tag = 51;
+    [webViewContainer addSubview:errorLabel];
     
-    UIActivityIndicatorView *spinner = [[UIActivityIndicatorView alloc] initWithActivityIndicatorStyle:UIActivityIndicatorViewStyleWhite];
-    spinner.center = CGPointMake(self.view.bounds.size.width / 2, 35);
-    spinner.tag = 42;
-    [webViewContainer addSubview:spinner];
-    [spinner startAnimating];
+    // WKWebView config
+    WKWebViewConfiguration *config = [[WKWebViewConfiguration alloc] init];
+    config.websiteDataStore = [WKWebsiteDataStore defaultDataStore];
     
-    CGFloat webY = 20;
-    authWebView = [[WKWebView alloc] initWithFrame:CGRectMake(0, webY, self.view.bounds.size.width, self.view.bounds.size.height - webY)];
+    // Allow popups (some OAuth flows open popups)
+    if ([config respondsToSelector:@selector(setAllowsInlineMediaPlayback:)]) {
+        config.allowsInlineMediaPlayback = YES;
+    }
+    
+    authWebView = [[WKWebView alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, self.view.bounds.size.height) configuration:config];
     authWebView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     authWebView.navigationDelegate = self;
-    authWebView.backgroundColor = [UIColor whiteColor];
+    authWebView.backgroundColor = [UIColor colorWithRed:0.06 green:0.06 blue:0.08 alpha:1.0];
+    authWebView.opaque = NO;
+    authWebView.scrollView.bounces = YES;
     [webViewContainer addSubview:authWebView];
     
     [self.view addSubview:webViewContainer];
     
     NSString *authURL = [NSString stringWithFormat:
-        @"https://oauth.yandex.ru/authorize?response_type=token&client_id=%@&redirect_uri=%@&display=mobile",
+        @"https://oauth.yandex.ru/authorize?response_type=token&client_id=%@&redirect_uri=%@",
         kClientId, kRedirectURI
     ];
-    NSURLRequest *req = [NSURLRequest requestWithURL:[NSURL URLWithString:authURL]];
+    NSURLRequest *req = [NSURLRequest requestWithURL:[NSURL URLWithString:authURL] 
+                                         cachePolicy:NSURLRequestUseProtocolCachePolicy 
+                                     timeoutInterval:30];
     [authWebView loadRequest:req];
 }
 
+#pragma mark - WKNavigationDelegate
+
 - (void)webView:(WKWebView *)webView decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
     NSURL *url = navigationAction.request.URL;
+    if (!url) {
+        decisionHandler(WKNavigationActionPolicyAllow);
+        return;
+    }
     NSString *absString = [url absoluteString];
     
     // Intercept our custom URL scheme with token
@@ -250,7 +270,7 @@ static NSString *const kRedirectURI = @"yandexmusic://auth/callback";
         return;
     }
     
-    // Also check for token in any URL (fallback)
+    // Also check for token in any URL (fallback for redirects)
     if ([absString containsString:@"access_token="]) {
         NSString *fragment = [url fragment];
         if (!fragment) fragment = [url query];
@@ -264,7 +284,7 @@ static NSString *const kRedirectURI = @"yandexmusic://auth/callback";
         }
     }
     
-    // If redirected to verification_code page, extract token from URL
+    // If redirected to verification_code page, Yandex couldn't do implicit flow
     if ([absString containsString:@"oauth.yandex.ru/verification_code"]) {
         NSString *fragment = [url fragment];
         if (fragment && [fragment containsString:@"access_token="]) {
@@ -275,7 +295,6 @@ static NSString *const kRedirectURI = @"yandexmusic://auth/callback";
                 return;
             }
         }
-        // No token in fragment - Yandex showed verification page instead
         dispatch_async(dispatch_get_main_queue(), ^{
             UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"\u0412\u043D\u0438\u043C\u0430\u043D\u0438\u0435"
                                                            message:@"\u0410\u0432\u0442\u043E\u0440\u0438\u0437\u0430\u0446\u0438\u044F \u043D\u0435 \u0437\u0430\u0432\u0435\u0440\u0448\u0435\u043D\u0430. \u0412\u0432\u0435\u0434\u0438\u0442\u0435 \u0442\u043E\u043A\u0435\u043D \u0432\u0440\u0443\u0447\u043D\u0443\u044E \u0438\u043B\u0438 \u043F\u043E\u043F\u0440\u043E\u0431\u0443\u0439\u0442\u0435 \u0435\u0449\u0451 \u0440\u0430\u0437."
@@ -292,11 +311,21 @@ static NSString *const kRedirectURI = @"yandexmusic://auth/callback";
     decisionHandler(WKNavigationActionPolicyAllow);
 }
 
+- (void)webView:(WKWebView *)webView didStartProvisionalNavigation:(WKNavigation *)navigation {
+    // Show loading state
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (errorLabel) {
+            errorLabel.hidden = YES;
+        }
+    });
+}
+
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
-    UIActivityIndicatorView *spinner = (UIActivityIndicatorView *)[webViewContainer viewWithTag:42];
-    if (spinner) [spinner stopAnimating];
-    UILabel *loadingLabel = (UILabel *)[webViewContainer viewWithTag:43];
-    if (loadingLabel) loadingLabel.hidden = YES;
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (errorLabel) {
+            errorLabel.hidden = YES;
+        }
+    });
     
     // Try to extract token from current URL
     NSString *url = [webView.URL absoluteString];
@@ -310,6 +339,77 @@ static NSString *const kRedirectURI = @"yandexmusic://auth/callback";
             }
         }
     }
+    
+    // Inject JS to detect page content and handle potential JS-based redirects
+    NSString *js = @"try { "
+        @"var html = document.body ? document.body.innerText : ''; "
+        @"window.__ymPageDetected = (html.length > 0); "
+        @"} catch(e) { window.__ymPageDetected = false; }";
+    [webView evaluateJavaScript:js completionHandler:nil];
+}
+
+- (void)webView:(WKWebView *)webView didFailProvisionalNavigation:(WKNavigation *)navigation withError:(NSError *)error {
+    NSLog(@"[YM OAuth] didFailProvisionalNavigation: %@", error.localizedDescription);
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self showOAuthError: @[error.localizedDescription, @"\u041F\u0440\u043E\u0432\u0435\u0440\u044C\u0442\u0435 \u0438\u043D\u0442\u0435\u0440\u043D\u0435\u0442-\u0441\u043E\u0435\u0434\u0438\u043D\u0435\u043D\u0438\u0435"]];
+    });
+}
+
+- (void)webView:(WKWebView *)webView didFailNavigation:(WKNavigation *)navigation withError:(NSError *)error {
+    NSLog(@"[YM OAuth] didFailNavigation: %@", error.localizedDescription);
+    dispatch_async(dispatch_get_main_queue(), ^{
+        [self showOAuthError: @[error.localizedDescription]];
+    });
+}
+
+- (void)webView:(WKWebView *)webView didReceiveServerRedirectForProvisionalNavigation:(WKNavigation *)navigation {
+    NSURL *url = webView.URL;
+    NSLog(@"[YM OAuth] Server redirect to: %@", [url absoluteString]);
+    
+    // Check for token in redirect URL
+    NSString *absString = [url absoluteString];
+    if ([[url scheme] isEqualToString:@"yandexmusic"]) {
+        NSString *fragment = [url fragment];
+        if (fragment) {
+            NSString *token = [self extractToken:fragment];
+            if (token) {
+                [self tokenReceived:token];
+                return;
+            }
+        }
+    }
+    if ([absString containsString:@"access_token="]) {
+        NSString *fragment = [url fragment] ?: [url query];
+        if (fragment) {
+            NSString *token = [self extractToken:fragment];
+            if (token) {
+                [self tokenReceived:token];
+            }
+        }
+    }
+}
+
+// Handle popups/new windows (some OAuth flows use window.open)
+- (WKWebView *)webView:(WKWebView *)webView createWebViewWithConfiguration:(WKWebViewConfiguration *)configuration forNavigationAction:(WKNavigationAction *)navigationAction windowFeatures:(WKWindowFeatures *)windowFeatures {
+    // Navigate the popup URL in the same webview
+    if (navigationAction.request.URL) {
+        [webView loadRequest:navigationAction.request];
+    }
+    return nil;
+}
+
+- (void)showOAuthError:(NSArray *)messages {
+    if (!errorLabel) return;
+    errorLabel.hidden = NO;
+    NSMutableString *text = [[NSMutableString alloc] init];
+    for (int i = 0; i < messages.count; i++) {
+        if (i > 0) [text appendString:@"\n"];
+        [text appendString:messages[i]];
+    }
+    errorLabel.text = text;
+    // Auto-size the label
+    CGFloat h = [text sizeWithFont:errorLabel.font constrainedToSize:CGSizeMake(self.view.bounds.size.width - 40, 200)].height;
+    errorLabel.frame = CGRectMake(20, 70, self.view.bounds.size.width - 40, h + 10);
 }
 
 - (NSString *)extractToken:(NSString *)fragment {
@@ -329,6 +429,7 @@ static NSString *const kRedirectURI = @"yandexmusic://auth/callback";
     [webViewContainer removeFromSuperview];
     webViewContainer = nil;
     authWebView = nil;
+    errorLabel = nil;
     [self buildLoginView];
 }
 

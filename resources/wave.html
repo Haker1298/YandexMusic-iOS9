@@ -84,7 +84,21 @@ function loadDashboard() {
 
     YM.apiCall('GET', '/rotor/station/dashboard', null, function(data) {
         if (data.error) {
-            YM.showError('content', 'Не удалось загрузить станции: ' + JSON.stringify(data.error));
+            var errMsg = 'Не удалось загрузить станции';
+            if (data.error === 'guest' || data.guestMode) {
+                errMsg = 'Необходимо войти в аккаунт';
+            } else if (typeof data.error === 'object' && data.error.message) {
+                if (data.error.message.indexOf('401') > -1 || data.error.message.indexOf('unauthorized') > -1 || data.error.message.indexOf('Invalid') > -1) {
+                    errMsg = 'Токен недействителен. Войдите заново';
+                } else if (data.error.message.indexOf('forbidden') > -1 || data.error.message.indexOf('403') > -1) {
+                    errMsg = 'Доступ запрещён';
+                }
+            } else if (typeof data.error === 'string') {
+                if (data.error.indexOf('401') > -1 || data.error.indexOf('unauthorized') > -1) {
+                    errMsg = 'Токен недействителен';
+                }
+            }
+            YM.showError('content', errMsg);
             return;
         }
         renderDashboard(data.result);
@@ -159,7 +173,13 @@ function playStation(stationId, stationName) {
 
     YM.apiCall('POST', '/rotor/station/station:' + stationId + '/tracks', body, function(data) {
         if (data.error || !data.result || !data.result.sequence) {
-            YM.showError('content', 'Не удалось получить треки');
+            var errMsg = 'Не удалось получить треки';
+            if (data.error && typeof data.error === 'object' && data.error.message) {
+                if (data.error.message.indexOf('401') > -1 || data.error.message.indexOf('unauthorized') > -1) {
+                    errMsg = 'Токен недействителен. Войдите заново';
+                }
+            }
+            YM.showError('content', errMsg);
             return;
         }
         var seq = data.result.sequence;
