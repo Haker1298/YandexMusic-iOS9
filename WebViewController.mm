@@ -209,6 +209,10 @@ static NSString *const kApiBase = @"https://api.music.yandex.net";
     NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:url];
     request.HTTPMethod = method;
     [request setValue:@"application/json" forHTTPHeaderField:@"Content-Type"];
+    // Required headers — Yandex Music API expects these from web clients
+    [request setValue:@"https://music.yandex.ru" forHTTPHeaderField:@"Origin"];
+    [request setValue:@"https://music.yandex.ru/" forHTTPHeaderField:@"Referer"];
+    [request setValue:@"YandexMusic/1.0 (iOS 9)" forHTTPHeaderField:@"User-Agent"];
 
     if (token) {
         [request setValue:[NSString stringWithFormat:@"OAuth %@", token] forHTTPHeaderField:@"Authorization"];

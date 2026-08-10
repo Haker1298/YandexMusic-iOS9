@@ -14,6 +14,7 @@ static NSString *const kRedirectURI = @"https://music.yandex.ru/";
     UIView *webViewContainer;
     UILabel *errorLabel;
     UILabel *statusLabel;
+    BOOL _tokenCaptured;
 }
 
 - (void)viewDidLoad {
@@ -185,6 +186,7 @@ static NSString *const kRedirectURI = @"https://music.yandex.ru/";
 - (void)showWebViewLogin {
     [loginView removeFromSuperview];
     [tokenInputView removeFromSuperview];
+    _tokenCaptured = NO;
     
     webViewContainer = [[UIView alloc] initWithFrame:self.view.bounds];
     webViewContainer.backgroundColor = [UIColor colorWithRed:0.06 green:0.06 blue:0.08 alpha:1.0];
@@ -219,6 +221,36 @@ static NSString *const kRedirectURI = @"https://music.yandex.ru/";
     WKWebViewConfiguration *config = [[WKWebViewConfiguration alloc] init];
     config.websiteDataStore = [WKWebsiteDataStore defaultDataStore];
     
+    // Inject a script that runs at document start on EVERY page.
+    // It polls for access_token in the URL and sends it via postMessage.
+    // This is the MOST RELIABLE way on iOS 9 where redirects with fragments
+    // happen too fast for decidePolicyForNavigationAction to catch.
+    NSString *tokenSniffer =
+        @"(function(){"
+        @"var sent=false;"
+        @"function check(){if(sent)return;"
+        @"var h=window.location.href;"
+        @"var m=h.match(/[#&?]access_token=([^&]+)/);"
+        @"if(m&&m[1].length>10){sent=true;"
+        @"try{window.webkit.messageHandlers.ymauth.postMessage(m[1]);}catch(e){}}"
+        @"}"
+        @"check();"
+        @"setInterval(check,150);"
+        @"var oldPushState=history.pushState;"
+        @"history.pushState=function(){oldPushState.apply(this,arguments);check();};"
+        @"window.addEventListener('hashchange',check);"
+        @"window.addEventListener('popstate',check);"
+        @"})();";
+    
+    WKUserScript *script = [[WKUserScript alloc]
+        initWithSource:tokenSniffer
+        injectionTime:WKUserScriptInjectionTimeAtDocumentStart
+        forMainFrameOnly:YES];
+    
+    config.userContentController = [[WKUserContentController alloc] init];
+    [config.userContentController addUserScript:script];
+    [config.userContentController addScriptMessageHandler:self name:@"ymauth"];
+    
     authWebView = [[WKWebView alloc] initWithFrame:CGRectMake(0, 0, self.view.bounds.size.width, self.view.bounds.size.height) configuration:config];
     authWebView.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
     authWebView.navigationDelegate = self;
@@ -229,9 +261,7 @@ static NSString *const kRedirectURI = @"https://music.yandex.ru/";
     
     [self.view addSubview:webViewContainer];
     
-    // Implicit OAuth flow — the only way to get a music-capable token
-    // response_type=token returns access_token in URL fragment
-    // Official Yandex Music client ID (cannot create your own)
+    // Implicit OAuth flow
     NSString *authURL = [NSString stringWithFormat:
         @"https://oauth.yandex.ru/authorize?response_type=token&client_id=%@&redirect_uri=%@",
         kClientId, kRedirectURI
@@ -240,11 +270,67 @@ static NSString *const kRedirectURI = @"https://music.yandex.ru/";
                                          cachePolicy:NSURLRequestUseProtocolCachePolicy
                                      timeoutInterval:30];
     [authWebView loadRequest:req];
+    
+    // Safety: also poll from native side every 500ms
+    [self startTokenPolling];
+}
+
+- (void)startTokenPolling {
+    __block int attempts = 0;
+    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(500 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
+        [self pollForToken:attempts];
+    });
+}
+
+- (void)pollForToken:(int)attempt {
+    if (_tokenCaptured || !authWebView) return;
+    if (attempt > 120) return; // 60 seconds max
+    
+    [authWebView evaluateJavaScript:@"(function(){var h=window.location.href;var m=h.match(/[#&?]access_token=([^&]+)/);return m?m[1]:'';})();"
+        completionHandler:^(id result, NSError *err) {
+            if (!err && [result isKindOfClass:[NSString class]]) {
+                NSString *token = (NSString *)result;
+                if (token.length > 10) {
+                    [self captureToken:token source:@"poll"];
+                    return;
+                }
+            }
+            dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(500 * NSEC_PER_MSEC)), dispatch_get_main_queue(), ^{
+                [self pollForToken:attempt + 1];
+            });
+        }];
+}
+
+#pragma mark - WKScriptMessageHandler (for injected token sniffer)
+
+- (void)userContentController:(WKUserContentController *)userContentController didReceiveScriptMessage:(WKScriptMessage *)message {
+    if ([[message name] isEqualToString:@"ymauth"]) {
+        NSString *token = nil;
+        if ([message.body isKindOfClass:[NSString class]]) {
+            token = (NSString *)message.body;
+        }
+        if (token && token.length > 10) {
+            [self captureToken:token source:@"inject"];
+        }
+    }
+}
+
+- (void)captureToken:(NSString *)token source:(NSString *)src {
+    if (_tokenCaptured) return;
+    _tokenCaptured = YES;
+    NSLog(@"[YM OAuth] Token captured via %@! Length: %lu", src, (unsigned long)token.length);
+    [self setStatusText:@"\u0422\u043E\u043A\u0435\u043D \u043F\u043E\u043B\u0443\u0447\u0435\u043D!"];
+    [self tokenReceived:token];
 }
 
 #pragma mark - WKNavigationDelegate
 
 - (void)webView:(WKWebView *)webView decidePolicyForNavigationAction:(WKNavigationAction *)navigationAction decisionHandler:(void (^)(WKNavigationActionPolicy))decisionHandler {
+    if (_tokenCaptured) {
+        decisionHandler(WKNavigationActionPolicyCancel);
+        return;
+    }
+    
     NSURL *url = navigationAction.request.URL;
     if (!url) {
         decisionHandler(WKNavigationActionPolicyAllow);
@@ -252,34 +338,26 @@ static NSString *const kRedirectURI = @"https://music.yandex.ru/";
     }
     NSString *absString = [url absoluteString];
     
-    // Intercept redirect to music.yandex.ru — token is in the URL fragment (#access_token=...)
+    // Intercept redirect to music.yandex.ru
     if ([absString containsString:@"music.yandex.ru"]) {
         NSString *fragment = [url fragment];
-        if (fragment && [fragment containsString:@"access_token="]) {
-            NSString *token = [self extractToken:fragment];
-            if (token && token.length > 0) {
-                NSLog(@"[YM OAuth] Got access token from implicit flow! Length: %lu", (unsigned long)token.length);
-                [self setStatusText:@"\u041F\u043E\u043B\u0443\u0447\u0435\u043D \u0442\u043E\u043A\u0435\u043D!"];
-                decisionHandler(WKNavigationActionPolicyCancel);
-                [self tokenReceived:token];
-                return;
-            }
-        }
-        // Also check query string (some iOS versions put fragment in query)
         NSString *query = [url query];
-        if (query && [query containsString:@"access_token="]) {
-            NSString *token = [self extractToken:query];
+        
+        // Check fragment first, then query
+        NSString *tokenStr = fragment ?: query;
+        if (tokenStr && [tokenStr containsString:@"access_token="]) {
+            NSString *token = [self extractToken:tokenStr];
             if (token && token.length > 0) {
-                NSLog(@"[YM OAuth] Got access token from query! Length: %lu", (unsigned long)token.length);
                 decisionHandler(WKNavigationActionPolicyCancel);
-                [self tokenReceived:token];
+                [self captureToken:token source:@"nav"];
                 return;
             }
         }
-        // Check for error in redirect
-        if (fragment && ([fragment containsString:@"error="] || [fragment containsString:@"error_description="])) {
-            NSString *errMsg = [self extractParam:@"error_description" fromQuery:fragment] 
-                           ?: [self extractParam:@"error" fromQuery:fragment] 
+        
+        // Check for error
+        if (tokenStr && ([tokenStr containsString:@"error="])) {
+            NSString *errMsg = [self extractParam:@"error_description" fromQuery:tokenStr]
+                           ?: [self extractParam:@"error" fromQuery:tokenStr]
                            ?: @"\u0410\u0432\u0442\u043E\u0440\u0438\u0437\u0430\u0446\u0438\u044F \u043E\u0442\u043C\u0435\u043D\u0435\u043D\u0430";
             decisionHandler(WKNavigationActionPolicyCancel);
             dispatch_async(dispatch_get_main_queue(), ^{
@@ -293,7 +371,8 @@ static NSString *const kRedirectURI = @"https://music.yandex.ru/";
             });
             return;
         }
-        // music.yandex.ru loaded but no token — let it load, we'll try JS extraction
+        
+        // Let music.yandex.ru load — injected script will catch the token
         decisionHandler(WKNavigationActionPolicyAllow);
         return;
     }
@@ -302,6 +381,8 @@ static NSString *const kRedirectURI = @"https://music.yandex.ru/";
 }
 
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
+    if (_tokenCaptured) return;
+    
     dispatch_async(dispatch_get_main_queue(), ^{
         if (errorLabel) errorLabel.hidden = YES;
         if (statusLabel && authWebView) {
@@ -310,17 +391,6 @@ static NSString *const kRedirectURI = @"https://music.yandex.ru/";
                 statusLabel.text = @"";
             }
         }
-        
-        // Fallback: try to extract token from URL via JavaScript
-        // The redirect happens so fast that decidePolicyForNavigationAction might miss it
-        NSString *js = @"(function() { var h = window.location.href; if (h.indexOf('access_token=') > -1) { var m = h.match(/access_token=([^&]+)/); if (m) return m[1]; } var f = window.location.hash; if (f && f.indexOf('access_token=') > -1) { var m2 = f.match(/access_token=([^&]+)/); if (m2) return m2[1]; } return ''; })();";
-        [authWebView evaluateJavaScript:js completionHandler:^(id result, NSError *err) {
-            if (!err && [result isKindOfClass:[NSString class]] && [(NSString *)result length] > 10) {
-                NSString *token = (NSString *)result;
-                NSLog(@"[YM OAuth] Extracted token via JS fallback! Length: %lu", (unsigned long)token.length);
-                [self tokenReceived:token];
-            }
-        }];
     });
 }
 
@@ -400,6 +470,7 @@ static NSString *const kRedirectURI = @"https://music.yandex.ru/";
 #pragma mark - Back / Token Received
 
 - (void)backToLogin {
+    _tokenCaptured = YES; // stop polling
     [webViewContainer removeFromSuperview];
     webViewContainer = nil;
     authWebView = nil;
