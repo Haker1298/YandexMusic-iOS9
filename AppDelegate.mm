@@ -6,7 +6,7 @@
 #import "MiniPlayerView.h"
 
 static NSString *const kClientId = @"b399db89f01e4bd4965ce1f79735ee05";
-static NSString *const kRedirectURI = @"yandexmusic://auth/callback";
+static NSString *const kRedirectURI = @"https://oauth.yandex.ru/verification_code";
 
 static UIImage *halfSizeImage(NSString *name) {
     UIImage *img = [UIImage imageNamed:name];
