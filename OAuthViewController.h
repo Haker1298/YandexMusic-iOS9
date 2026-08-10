@@ -1,5 +1,5 @@
 #import <UIKit/UIKit.h>
 #import <WebKit/WebKit.h>
 
-@interface OAuthViewController : UIViewController <WKNavigationDelegate>
+@interface OAuthViewController : UIViewController <WKNavigationDelegate, WKScriptMessageHandler>
 @end
