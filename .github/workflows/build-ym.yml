@@ -37,13 +37,14 @@ jobs:
       - name: Copy Info.plist & repack deb with gzip
         run: |
           set -e
+          cd $GITHUB_WORKSPACE
           DEB=$(ls -t packages/*.deb | head -1)
+          DEB_NAME=$(basename "$DEB")
           echo "Repacking $DEB for iOS 9..."
           WORK=$(mktemp -d)
           cp "$DEB" "$WORK/"
           cd "$WORK"
-          ar x *.deb
-          # Extract data, copy Info.plist, repack
+          ar x "$DEB_NAME"
           if [ -f data.tar.lzma ]; then
             xz -d data.tar.lzma
           elif [ -f data.tar.xz ]; then
@@ -51,16 +52,15 @@ jobs:
           elif [ -f data.tar.gz ]; then
             gunzip data.tar.gz
           fi
-          # Inject Info.plist into the .app bundle inside data.tar
           tar xf data.tar
           cp $GITHUB_WORKSPACE/YandexMusic.plist Applications/YandexMusic.app/Info.plist
           echo "[OK] Info.plist injected"
           tar cf data.tar Applications
           gzip -f data.tar
-          # Rebuild .deb with gzip-compressed data
-          ar r $(basename "$DEB") debian-binary control.tar.gz data.tar.gz
-          cp $(basename "$DEB") "$DEB"
+          ar r "$DEB_NAME" debian-binary control.tar.gz data.tar.gz
+          cp "$DEB_NAME" "$GITHUB_WORKSPACE/$DEB"
           echo "[OK] Repacked with gzip + Info.plist"
+          cd $GITHUB_WORKSPACE
           rm -rf "$WORK"
 
       - name: Upload .deb
