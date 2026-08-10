@@ -2,9 +2,10 @@
 #import "AppDelegate.h"
 #import "KeychainHelper.h"
 
-static NSString *const kClientId = @"b399db89f01e4bd4965ce1f79735ee05";
-static NSString *const kClientSecret = @"a57956dc691e47288f482b3ca8c2c79b";
-static NSString *const kRedirectURI = @"https://oauth.yandex.ru/verification_code";
+// Official Yandex Music web client ID — you CANNOT create your own OAuth app for Yandex Music
+// Source: https://github.com/MarshalX/yandex-music-api
+static NSString *const kClientId = @"23cabbbdc6cd418abb4b39c32c41195d";
+static NSString *const kRedirectURI = @"https://music.yandex.ru/";
 
 @implementation OAuthViewController {
     UIView *loginView;
@@ -143,8 +144,8 @@ static NSString *const kRedirectURI = @"https://oauth.yandex.ru/verification_cod
     [submitBtn addTarget:self action:@selector(submitManualToken) forControlEvents:UIControlEventTouchUpInside];
     [tokenInputView addSubview:submitBtn];
     
-    UILabel *helpLabel = [[UILabel alloc] initWithFrame:CGRectMake(30, 250, cx - 60, 60)];
-    helpLabel.text = @"\u0412\u0441\u0442\u0430\u0432\u044C\u0442\u0435 OAuth \u0442\u043E\u043A\u0435\u043D \u043E\u0442 \u042F\u043D\u0434\u0435\u043A\u0441 ID";
+    UILabel *helpLabel = [[UILabel alloc] initWithFrame:CGRectMake(30, 250, cx - 60, 80)];
+    helpLabel.text = @"\u0412\u0441\u0442\u0430\u0432\u044C\u0442\u0435 OAuth \u0442\u043E\u043A\u0435\u043D \u043E\u0442 \u042F\u043D\u0434\u0435\u043A\u0441 \u041C\u0443\u0437\u044B\u043A\u0438\n\n\u041F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0442\u043E\u043A\u0435\u043D \u043C\u043E\u0436\u043D\u043E \u0447\u0435\u0440\u0435\u0437 \u0432\u0445\u043E\u0434 \u0447\u0435\u0440\u0435\u0437 \u042F\u043D\u0434\u0435\u043A\u0441 ID";
     helpLabel.numberOfLines = 0;
     helpLabel.textAlignment = NSTextAlignmentCenter;
     helpLabel.textColor = [UIColor colorWithWhite:0.4 alpha:1.0];
@@ -179,7 +180,7 @@ static NSString *const kRedirectURI = @"https://oauth.yandex.ru/verification_cod
     [del showMainApp];
 }
 
-#pragma mark - WebView Login (Yandex ID) - Authorization Code Flow
+#pragma mark - WebView Login (Yandex ID) — Implicit OAuth Flow
 
 - (void)showWebViewLogin {
     [loginView removeFromSuperview];
@@ -228,10 +229,11 @@ static NSString *const kRedirectURI = @"https://oauth.yandex.ru/verification_cod
     
     [self.view addSubview:webViewContainer];
     
-    // Use response_type=code (Authorization Code flow)
-    // The redirect_uri matches what's configured in Yandex OAuth settings
+    // Implicit OAuth flow — the only way to get a music-capable token
+    // response_type=token returns access_token in URL fragment
+    // Official Yandex Music client ID (cannot create your own)
     NSString *authURL = [NSString stringWithFormat:
-        @"https://oauth.yandex.ru/authorize?response_type=code&client_id=%@&redirect_uri=%@",
+        @"https://oauth.yandex.ru/authorize?response_type=token&client_id=%@&redirect_uri=%@",
         kClientId, kRedirectURI
     ];
     NSURLRequest *req = [NSURLRequest requestWithURL:[NSURL URLWithString:authURL]
@@ -250,23 +252,35 @@ static NSString *const kRedirectURI = @"https://oauth.yandex.ru/verification_cod
     }
     NSString *absString = [url absoluteString];
     
-    // Intercept redirect to verification_code page — extract authorization code
-    if ([absString containsString:@"oauth.yandex.ru/verification_code"]) {
-        NSString *query = [url query];
-        if (query && [query containsString:@"code="]) {
-            NSString *code = [self extractParam:@"code" fromQuery:query];
-            if (code) {
-                NSLog(@"[YM OAuth] Got authorization code, exchanging for token...");
-                [self setStatusText:@"\u041F\u043E\u043B\u0443\u0447\u0435\u043D\u0438\u0435 \u0442\u043E\u043A\u0435\u043D\u0430..."];
+    // Intercept redirect to music.yandex.ru — token is in the URL fragment (#access_token=...)
+    if ([absString containsString:@"music.yandex.ru"]) {
+        NSString *fragment = [url fragment];
+        if (fragment && [fragment containsString:@"access_token="]) {
+            NSString *token = [self extractToken:fragment];
+            if (token && token.length > 0) {
+                NSLog(@"[YM OAuth] Got access token from implicit flow! Length: %lu", (unsigned long)token.length);
+                [self setStatusText:@"\u041F\u043E\u043B\u0443\u0447\u0435\u043D \u0442\u043E\u043A\u0435\u043D!"];
                 decisionHandler(WKNavigationActionPolicyCancel);
-                [self exchangeCodeForToken:code];
+                [self tokenReceived:token];
                 return;
             }
         }
-        // verification_code page without code — user denied or error
-        if (query && ([query containsString:@"error="] || [query containsString:@"error_description="])) {
-            NSString *errDesc = [self extractParam:@"error_description" fromQuery:query];
-            NSString *errMsg = errDesc ?: [self extractParam:@"error" fromQuery:query] ?: @"\u0410\u0432\u0442\u043E\u0440\u0438\u0437\u0430\u0446\u0438\u044F \u043E\u0442\u043C\u0435\u043D\u0435\u043D\u0430";
+        // Also check query string (some iOS versions put fragment in query)
+        NSString *query = [url query];
+        if (query && [query containsString:@"access_token="]) {
+            NSString *token = [self extractToken:query];
+            if (token && token.length > 0) {
+                NSLog(@"[YM OAuth] Got access token from query! Length: %lu", (unsigned long)token.length);
+                decisionHandler(WKNavigationActionPolicyCancel);
+                [self tokenReceived:token];
+                return;
+            }
+        }
+        // Check for error in redirect
+        if (fragment && ([fragment containsString:@"error="] || [fragment containsString:@"error_description="])) {
+            NSString *errMsg = [self extractParam:@"error_description" fromQuery:fragment] 
+                           ?: [self extractParam:@"error" fromQuery:fragment] 
+                           ?: @"\u0410\u0432\u0442\u043E\u0440\u0438\u0437\u0430\u0446\u0438\u044F \u043E\u0442\u043C\u0435\u043D\u0435\u043D\u0430";
             decisionHandler(WKNavigationActionPolicyCancel);
             dispatch_async(dispatch_get_main_queue(), ^{
                 UIAlertView *alert = [[UIAlertView alloc] initWithTitle:@"\u041E\u0448\u0438\u0431\u043A\u0430"
@@ -279,43 +293,40 @@ static NSString *const kRedirectURI = @"https://oauth.yandex.ru/verification_cod
             });
             return;
         }
-        // Let the verification_code page load (fallback)
+        // music.yandex.ru loaded but no token — let it load, we'll try JS extraction
         decisionHandler(WKNavigationActionPolicyAllow);
         return;
     }
     
-    // Fallback: check for access_token in URL (in case implicit flow works)
-    if ([absString containsString:@"access_token="]) {
-        NSString *fragment = [url fragment];
-        if (!fragment) fragment = [url query];
-        if (fragment) {
-            NSString *token = [self extractToken:fragment];
-            if (token) {
-                [self tokenReceived:token];
-                decisionHandler(WKNavigationActionPolicyCancel);
-                return;
-            }
-        }
-    }
-    
     decisionHandler(WKNavigationActionPolicyAllow);
-}
-
-- (void)webView:(WKWebView *)webView didStartProvisionalNavigation:(WKNavigation *)navigation {
-    dispatch_async(dispatch_get_main_queue(), ^{
-        if (errorLabel) errorLabel.hidden = YES;
-    });
 }
 
 - (void)webView:(WKWebView *)webView didFinishNavigation:(WKNavigation *)navigation {
     dispatch_async(dispatch_get_main_queue(), ^{
         if (errorLabel) errorLabel.hidden = YES;
         if (statusLabel && authWebView) {
- NSString *urlStr = [authWebView.URL absoluteString];
+            NSString *urlStr = [authWebView.URL absoluteString];
             if (urlStr && ![urlStr containsString:@"oauth.yandex.ru/authorize"]) {
                 statusLabel.text = @"";
             }
         }
+        
+        // Fallback: try to extract token from URL via JavaScript
+        // The redirect happens so fast that decidePolicyForNavigationAction might miss it
+        NSString *js = @"(function() { var h = window.location.href; if (h.indexOf('access_token=') > -1) { var m = h.match(/access_token=([^&]+)/); if (m) return m[1]; } var f = window.location.hash; if (f && f.indexOf('access_token=') > -1) { var m2 = f.match(/access_token=([^&]+)/); if (m2) return m2[1]; } return ''; })();";
+        [authWebView evaluateJavaScript:js completionHandler:^(id result, NSError *err) {
+            if (!err && [result isKindOfClass:[NSString class]] && [(NSString *)result length] > 10) {
+                NSString *token = (NSString *)result;
+                NSLog(@"[YM OAuth] Extracted token via JS fallback! Length: %lu", (unsigned long)token.length);
+                [self tokenReceived:token];
+            }
+        }];
+    });
+}
+
+- (void)webView:(WKWebView *)webView didStartProvisionalNavigation:(WKNavigation *)navigation {
+    dispatch_async(dispatch_get_main_queue(), ^{
+        if (errorLabel) errorLabel.hidden = YES;
     });
 }
 
@@ -338,54 +349,6 @@ static NSString *const kRedirectURI = @"https://oauth.yandex.ru/verification_cod
         [webView loadRequest:navigationAction.request];
     }
     return nil;
-}
-
-#pragma mark - Exchange Code for Token
-
-- (void)exchangeCodeForToken:(NSString *)code {
-    NSString *tokenURL = @"https://oauth.yandex.ru/token";
-    NSMutableURLRequest *request = [NSMutableURLRequest requestWithURL:[NSURL URLWithString:tokenURL]];
-    request.HTTPMethod = @"POST";
-    [request setValue:@"application/x-www-form-urlencoded" forHTTPHeaderField:@"Content-Type"];
-    
-    NSString *bodyStr = [NSString stringWithFormat:
-        @"grant_type=authorization_code&code=%@&client_id=%@&client_secret=%@",
-        code, kClientId, kClientSecret
-    ];
-    request.HTTPBody = [bodyStr dataUsingEncoding:NSUTF8StringEncoding];
-    
-    [self setStatusText:@"\u041E\u0431\u043C\u0435\u043D \u043A\u043E\u0434\u0430 \u043D\u0430 \u0442\u043E\u043A\u0435\u043D..."];
-    
-    NSURLSessionDataTask *task = [[NSURLSession sharedSession] dataTaskWithRequest:request completionHandler:^(NSData *data, NSURLResponse *response, NSError *error) {
-        dispatch_async(dispatch_get_main_queue(), ^{
-            if (error) {
-                NSLog(@"[YM OAuth] Token exchange error: %@", error.localizedDescription);
-                [self showOAuthError: @[@"\u041E\u0448\u0438\u0431\u043A\u0430 \u043F\u043E\u043B\u0443\u0447\u0435\u043D\u0438\u044F \u0442\u043E\u043A\u0435\u043D\u0430", error.localizedDescription]];
-                return;
-            }
-            
-            NSError *jsonErr;
-            NSDictionary *json = [NSJSONSerialization JSONObjectWithData:data options:0 error:&jsonErr];
-            
-            if (!json) {
-                NSString *raw = [[NSString alloc] initWithData:data encoding:NSUTF8StringEncoding];
-                NSLog(@"[YM OAuth] Token exchange bad JSON: %@", raw);
-                [self showOAuthError: @[@"\u041E\u0448\u0438\u0431\u043A\u0430: \u043D\u0435\u0432\u0435\u0440\u043D\u044B\u0439 \u043E\u0442\u0432\u0435\u0442 \u0441\u0435\u0440\u0432\u0435\u0440\u0430"]];
-                return;
-            }
-            
-            NSString *token = json[@"access_token"];
-            if (token && token.length > 0) {
-                NSLog(@"[YM OAuth] Got access token! Length: %lu", (unsigned long)token.length);
-                [self tokenReceived:token];
-            } else {
-                NSString *errDesc = json[@"error_description"] ?: json[@"error"] ?: @"\u041D\u0435\u0438\u0437\u0432\u0435\u0441\u0442\u043D\u0430\u044F \u043E\u0448\u0438\u0431\u043A\u0430";
-                NSLog(@"[YM OAuth] Token exchange failed: %@", json);
-                [self showOAuthError: @[@"\u041D\u0435 \u0443\u0434\u0430\u043B\u043E\u0441\u044C \u043F\u043E\u043B\u0443\u0447\u0438\u0442\u044C \u0442\u043E\u043A\u0435\u043D", errDesc]];
-            }
-        });
-    }];
-    [task resume];
 }
 
 #pragma mark - Helpers
