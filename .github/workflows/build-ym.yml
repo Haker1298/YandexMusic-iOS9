@@ -58,6 +58,8 @@ jobs:
           tar cf data.tar Applications
           gzip -f data.tar
           ar r "$DEB_NAME" debian-binary control.tar.gz data.tar.gz
+          # Rebuild archive without old lzma member
+          ar d "$DEB_NAME" data.tar.lzma 2>/dev/null || true
           cp "$DEB_NAME" "$GITHUB_WORKSPACE/$DEB"
           echo "[OK] Repacked with gzip + Info.plist"
           cd $GITHUB_WORKSPACE
