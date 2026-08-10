@@ -6,22 +6,22 @@ include $(THEOS)/makefiles/common.mk
 
 APPLICATION_NAME = YandexMusic
 
-YandexMusic_FILES = main.mm \ 
-	AppDelegate.mm \ 
-	WebViewController.mm \ 
-	AudioPlayer.mm \ 
-	OAuthViewController.mm \ 
-	KeychainHelper.mm \ 
-	MiniPlayerView.mm
+YandexMusic_FILES = main.mm \
+        AppDelegate.mm \
+        WebViewController.mm \
+        AudioPlayer.mm \
+        OAuthViewController.mm \
+        KeychainHelper.mm \
+        MiniPlayerView.mm
 
-YandexMusic_FRAMEWORKS = UIKit \ 
-	WebKit \ 
-	AVFoundation \ 
-	CoreMedia \ 
-	AudioToolbox \ 
-	Security \ 
-	CoreGraphics \ 
-	Foundation
+YandexMusic_FRAMEWORKS = UIKit \
+        WebKit \
+        AVFoundation \
+        CoreMedia \
+        AudioToolbox \
+        Security \
+        CoreGraphics \
+        Foundation
 
 YandexMusic_CFLAGS = -fobjc-arc -Wno-deprecated-declarations
 YandexMusic_OBJCFLAGS = -fobjc-arc -Wno-deprecated-declarations
